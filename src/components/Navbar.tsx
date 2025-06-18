@@ -1,14 +1,13 @@
-
 "use client";
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Coffee, List, PlusCircle, Settings, LogIn, LogOut } from 'lucide-react';
+import { Coffee, List, UserPlus, LogIn, LogOut, LayoutDashboard, Settings, PlusCircle } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 
 export function Navbar() {
-  const { isAuthenticated, logout, isInitialized } = useStore();
+  const { currentUser, logout, isInitialized } = useStore();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -30,36 +29,58 @@ export function Navbar() {
               Daftar Kafe
             </Link>
           </Button>
-          {isInitialized && isAuthenticated && (
+          {isInitialized && currentUser?.role === 'superadmin' && (
+            <Button variant="ghost" asChild className="text-xs sm:text-sm">
+              <Link href="/add-cafe-by-superadmin">
+                <PlusCircle className="mr-1 h-4 w-4" />
+                Tambah Kafe (SA)
+              </Link>
+            </Button>
+          )}
+           {isInitialized && currentUser?.role === 'cafeadmin' && currentUser.cafeId && (
             <>
               <Button variant="ghost" asChild className="text-xs sm:text-sm">
-                <Link href="/add-cafe">
-                  <PlusCircle className="mr-1 h-4 w-4" />
-                  Tambah Kafe
+                <Link href="/dashboard">
+                  <LayoutDashboard className="mr-1 h-4 w-4" />
+                  Dashboard
                 </Link>
               </Button>
               <Button variant="ghost" asChild className="text-xs sm:text-sm">
-                <Link href="/manage-categories">
+                <Link href={`/cafes/${currentUser.cafeId}`}>
+                  <Coffee className="mr-1 h-4 w-4" />
+                  Kelola Menu Saya
+                </Link>
+              </Button>
+              <Button variant="ghost" asChild className="text-xs sm:text-sm">
+                <Link href={`/cafes/${currentUser.cafeId}/manage-categories`}>
                   <Settings className="mr-1 h-4 w-4" />
-                  Kelola Kategori
+                  Kelola Kategori Saya
                 </Link>
               </Button>
             </>
           )}
         </nav>
         <div className="flex items-center space-x-2">
-          {isInitialized && isAuthenticated === false && (
-            <Button variant="outline" asChild className="text-xs sm:text-sm">
-              <Link href="/login">
-                <LogIn className="mr-1 h-4 w-4" />
-                Login
-              </Link>
-            </Button>
+          {isInitialized && !currentUser && (
+            <>
+              <Button variant="outline" asChild className="text-xs sm:text-sm">
+                <Link href="/login">
+                  <LogIn className="mr-1 h-4 w-4" />
+                  Login
+                </Link>
+              </Button>
+              <Button asChild className="text-xs sm:text-sm">
+                <Link href="/register">
+                  <UserPlus className="mr-1 h-4 w-4" />
+                  Daftar Kafe
+                </Link>
+              </Button>
+            </>
           )}
-          {isInitialized && isAuthenticated === true && (
+          {isInitialized && currentUser && (
             <Button variant="outline" onClick={handleLogout} className="text-xs sm:text-sm">
               <LogOut className="mr-1 h-4 w-4" />
-              Logout
+              Logout ({currentUser.email})
             </Button>
           )}
         </div>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -12,7 +11,7 @@ import { ArrowLeft } from 'lucide-react';
 export default function EditMenuItemPage() {
   const params = useParams();
   const router = useRouter();
-  const { getCafeById, getMenuItemById, isAuthenticated, isInitialized } = useStore();
+  const { getCafeById, getMenuItemById, currentUser, isInitialized } = useStore();
 
   const cafeId = typeof params.cafeId === 'string' ? params.cafeId : '';
   const menuItemId = typeof params.menuItemId === 'string' ? params.menuItemId : '';
@@ -21,37 +20,43 @@ export default function EditMenuItemPage() {
   const [menuItem, setMenuItem] = useState<MenuItem | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     if (isInitialized) {
-      if (isAuthenticated === false) {
+      if (!currentUser || currentUser.role !== 'cafeadmin' || currentUser.cafeId !== cafeId) {
         router.push(`/login?redirect=/cafes/${cafeId}/edit-menu/${menuItemId}`);
-      } else if (isAuthenticated === true) {
-        setIsCheckingAuth(false);
-        if (cafeId && menuItemId) {
-          const foundCafe = getCafeById(cafeId);
-          const foundMenuItem = getMenuItemById(menuItemId);
-          
-          setCafe(foundCafe);
-          setMenuItem(foundMenuItem);
-          setIsLoading(false);
+        return;
+      }
+      setCanManage(true);
+      setIsCheckingAuth(false);
 
-          if (!foundCafe || !foundMenuItem) {
-            router.push(foundCafe ? `/cafes/${cafeId}` : '/'); 
-          }
+      if (cafeId && menuItemId) {
+        const foundCafe = getCafeById(cafeId);
+        const foundMenuItem = getMenuItemById(menuItemId);
+        
+        // Ensure the menu item belongs to the cafe the admin is managing
+        if (foundCafe && foundMenuItem && foundMenuItem.cafeId === cafeId) {
+            setCafe(foundCafe);
+            setMenuItem(foundMenuItem);
         } else {
-          setIsLoading(false);
-          router.push('/'); 
+            setCafe(null); // Indicate error or mismatch
+            setMenuItem(null);
+            router.push(foundCafe ? `/cafes/${cafeId}` : '/dashboard'); 
         }
+        setIsLoading(false);
+      } else {
+        setIsLoading(false);
+        router.push('/dashboard'); 
       }
     }
-  }, [isAuthenticated, isInitialized, router, cafeId, menuItemId, getCafeById, getMenuItemById]);
+  }, [currentUser, isInitialized, router, cafeId, menuItemId, getCafeById, getMenuItemById]);
 
-  if (isCheckingAuth || !isInitialized || isAuthenticated === undefined) {
+  if (isCheckingAuth || !isInitialized || currentUser === undefined) {
     return <div className="text-center py-10">Memuat dan memeriksa otentikasi...</div>;
   }
-  if (!isAuthenticated) {
-    return <div className="text-center py-10">Mengarahkan ke halaman login...</div>;
+  if (!canManage) {
+    return <div className="text-center py-10">Anda tidak diizinkan mengedit menu ini. Mengarahkan...</div>;
   }
 
   if (isLoading || cafe === undefined || menuItem === undefined) {
@@ -59,14 +64,14 @@ export default function EditMenuItemPage() {
   }
 
   if (cafe === null || menuItem === null) {
-    return <div className="text-center py-10">Data kafe atau item menu tidak ditemukan. Anda akan diarahkan.</div>;
+    return <div className="text-center py-10">Data kafe atau item menu tidak ditemukan/tidak sesuai. Anda akan diarahkan.</div>;
   }
 
   return (
     <div className="space-y-6">
       <Button variant="outline" onClick={() => router.push(`/cafes/${cafeId}`)} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Kembali ke Menu Kafe (Admin)
+        Kembali ke Kelola Menu
       </Button>
       <MenuItemForm
         isEditMode={true}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -21,11 +20,18 @@ const categorySchema = z.object({
 });
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
-export function CategoryManager() {
-  const { menuCategories, addMenuCategory, editMenuCategory, deleteMenuCategory } = useStore();
+interface CategoryManagerProps {
+  cafeId: string;
+  cafeName: string;
+}
+
+export function CategoryManager({ cafeId, cafeName }: CategoryManagerProps) {
+  const { getMenuCategoriesForCafe, addMenuCategoryForCafe, editMenuCategoryForCafe, deleteMenuCategoryForCafe } = useStore();
   const { toast } = useToast();
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const menuCategories = getMenuCategoriesForCafe(cafeId);
 
   const addForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
@@ -37,31 +43,31 @@ export function CategoryManager() {
   });
 
   function handleAddCategory(data: CategoryFormValues) {
-    const success = addMenuCategory(data.name);
+    const success = addMenuCategoryForCafe(cafeId, data.name);
     if (success) {
-      toast({ title: "Kategori Ditambahkan", description: `Kategori "${data.name}" berhasil ditambahkan.` });
+      toast({ title: "Kategori Ditambahkan", description: `Kategori "${data.name}" berhasil ditambahkan untuk ${cafeName}.` });
       addForm.reset();
     } else {
-      toast({ variant: "destructive", title: "Gagal Menambahkan", description: `Kategori "${data.name}" sudah ada.` });
+      toast({ variant: "destructive", title: "Gagal Menambahkan", description: `Kategori "${data.name}" mungkin sudah ada.` });
     }
   }
 
   function handleDeleteCategory(categoryName: string) {
-    deleteMenuCategory(categoryName);
-    toast({ title: "Kategori Dihapus", description: `Kategori "${categoryName}" berhasil dihapus.` });
+    deleteMenuCategoryForCafe(cafeId, categoryName);
+    toast({ title: "Kategori Dihapus", description: `Kategori "${categoryName}" berhasil dihapus dari ${cafeName}.` });
   }
 
   function openEditDialog(categoryName: string) {
     setEditingCategory(categoryName);
-    editForm.reset({ name: categoryName }); // Pre-fill form with current name
+    editForm.reset({ name: categoryName });
     setIsEditDialogOpen(true);
   }
 
   function handleEditCategory(data: CategoryFormValues) {
     if (!editingCategory) return;
-    const success = editMenuCategory(editingCategory, data.name);
+    const success = editMenuCategoryForCafe(cafeId, editingCategory, data.name);
     if (success) {
-      toast({ title: "Kategori Diperbarui", description: `Kategori "${editingCategory}" berhasil diubah menjadi "${data.name}".` });
+      toast({ title: "Kategori Diperbarui", description: `Kategori berhasil diubah menjadi "${data.name}".` });
       setIsEditDialogOpen(false);
       setEditingCategory(null);
     } else {
@@ -75,9 +81,9 @@ export function CategoryManager() {
         <CardHeader>
           <CardTitle className="font-headline text-3xl text-primary flex items-center">
             <Tag className="mr-3 h-7 w-7" />
-            Kelola Kategori Menu
+            Kelola Kategori Menu untuk {cafeName}
           </CardTitle>
-          <CardDescription>Tambah, ubah, atau hapus kategori untuk item menu Anda.</CardDescription>
+          <CardDescription>Tambah, ubah, atau hapus kategori untuk item menu kafe Anda.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...addForm}>
@@ -105,7 +111,7 @@ export function CategoryManager() {
           <Separator className="my-6" />
 
           {menuCategories.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">Belum ada kategori. Silakan tambahkan kategori pertama Anda.</p>
+            <p className="text-muted-foreground text-center py-4">Belum ada kategori untuk kafe ini. Silakan tambahkan kategori pertama Anda.</p>
           ) : (
             <ul className="space-y-3">
               {menuCategories.map((category) => (
@@ -142,7 +148,6 @@ export function CategoryManager() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>

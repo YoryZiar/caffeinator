@@ -1,42 +1,24 @@
-
 "use client";
 
-import { useEffect, useState } from 'react';
+// This file is effectively removed and replaced by /cafes/[cafeId]/manage-categories/page.tsx
+// Keeping a placeholder or redirecting might be an option if direct access is anticipated.
+// For now, let's assume it's "removed" by not being linked and its functionality moved.
+
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CategoryManager } from '@/components/CategoryManager';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import { useStore } from '@/lib/store';
 
-export default function ManageCategoriesPage() {
+export default function ObsoleteManageCategoriesPage() {
   const router = useRouter();
-  const { isAuthenticated, isInitialized } = useStore();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-
   useEffect(() => {
-    if (isInitialized) {
-      if (isAuthenticated === false) {
-        router.push('/login?redirect=/manage-categories');
-      } else if (isAuthenticated === true) {
-        setIsCheckingAuth(false);
-      }
-    }
-  }, [isAuthenticated, isInitialized, router]);
-
-  if (isCheckingAuth || !isInitialized || isAuthenticated === undefined) {
-    return <div className="text-center py-10">Memuat dan memeriksa otentikasi...</div>;
-  }
-  if (!isAuthenticated) {
-    return <div className="text-center py-10">Mengarahkan ke halaman login...</div>;
-  }
+    // Redirect to homepage or a more relevant page
+    // as global category management is no longer a feature.
+    router.replace('/'); 
+  }, [router]);
 
   return (
-    <div className="space-y-6">
-      <Button variant="outline" onClick={() => router.back()} className="mb-6">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Kembali
-      </Button>
-      <CategoryManager />
+    <div className="text-center py-10">
+      Halaman ini sudah tidak digunakan. Pengelolaan kategori sekarang dilakukan per kafe.
+      <p>Anda akan diarahkan...</p>
     </div>
   );
 }

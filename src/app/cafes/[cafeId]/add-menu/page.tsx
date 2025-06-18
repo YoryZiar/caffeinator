@@ -1,4 +1,3 @@
-
 "use client";
 
 import { MenuItemForm } from '@/components/MenuItemForm';
@@ -11,38 +10,41 @@ import { useEffect, useState } from 'react';
 export default function AddMenuItemPage() {
   const params = useParams();
   const cafeId = typeof params.cafeId === 'string' ? params.cafeId : '';
-  const { getCafeById, isAuthenticated, isInitialized } = useStore();
+  const { getCafeById, currentUser, isInitialized } = useStore();
   const router = useRouter();
   
   const [cafeName, setCafeName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     if (isInitialized) {
-      if (isAuthenticated === false) {
+      if (!currentUser || currentUser.role !== 'cafeadmin' || currentUser.cafeId !== cafeId) {
         router.push(`/login?redirect=/cafes/${cafeId}/add-menu`);
-      } else if (isAuthenticated === true) {
-        setIsCheckingAuth(false);
-        if (cafeId) {
-          const cafe = getCafeById(cafeId);
-          if (cafe) {
-            setCafeName(cafe.name);
-          } else {
-            router.push('/');
-          }
-          setIsLoading(false);
+        return;
+      }
+      setCanManage(true);
+      setIsCheckingAuth(false);
+
+      if (cafeId) {
+        const cafe = getCafeById(cafeId);
+        if (cafe) {
+          setCafeName(cafe.name);
+        } else {
+          router.push('/dashboard'); // Cafe not found or mismatch
         }
+        setIsLoading(false);
       }
     }
-  }, [isAuthenticated, isInitialized, router, cafeId, getCafeById]);
+  }, [currentUser, isInitialized, router, cafeId, getCafeById]);
 
 
-  if (isCheckingAuth || !isInitialized || isAuthenticated === undefined) {
+  if (isCheckingAuth || !isInitialized || currentUser === undefined) {
     return <div className="text-center py-10">Memuat dan memeriksa otentikasi...</div>;
   }
-  if (!isAuthenticated) {
-    return <div className="text-center py-10">Mengarahkan ke halaman login...</div>;
+  if (!canManage) {
+    return <div className="text-center py-10">Anda tidak diizinkan menambah menu untuk kafe ini. Mengarahkan...</div>;
   }
 
   if (isLoading) {
@@ -50,14 +52,14 @@ export default function AddMenuItemPage() {
   }
 
   if (!cafeName) {
-    return <div className="text-center py-10">Kafe tidak ditemukan.</div>;
+    return <div className="text-center py-10">Kafe tidak ditemukan atau tidak sesuai.</div>;
   }
 
   return (
     <div className="space-y-6">
        <Button variant="outline" onClick={() => router.back()} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Kembali ke Menu Kafe (Admin)
+        Kembali ke Kelola Menu
       </Button>
       <MenuItemForm cafeId={cafeId} cafeName={cafeName} />
     </div>

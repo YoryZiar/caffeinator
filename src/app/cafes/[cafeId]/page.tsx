@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useStore } from '@/lib/store';
@@ -10,44 +9,46 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, PlusCircle, UtensilsCrossed } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-export default function CafeMenuPage() { // This is now the ADMIN menu page
+export default function CafeMenuManagementPage() { 
   const params = useParams();
   const cafeId = typeof params.cafeId === 'string' ? params.cafeId : '';
   
-  const { getCafeById, getMenuItemsByCafeId, isAuthenticated, isInitialized } = useStore();
+  const { currentUser, isInitialized, getCafeById, getMenuItemsByCafeId } = useStore();
   const router = useRouter();
 
   const [cafeName, setCafeName] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     if (isInitialized) {
-      if (isAuthenticated === false) {
+      if (!currentUser || currentUser.role !== 'cafeadmin' || currentUser.cafeId !== cafeId) {
         router.push(`/login?redirect=/cafes/${cafeId}`);
-      } else if (isAuthenticated === true) {
-        setIsCheckingAuth(false);
-        if (cafeId) {
-          const cafe = getCafeById(cafeId);
-          if (cafe) {
-            setCafeName(cafe.name);
-            setMenuItems(getMenuItemsByCafeId(cafeId));
-          } else {
-            router.push('/'); 
-          }
-          setIsLoading(false);
-        }
+        return;
       }
+      setCanManage(true);
+      setIsCheckingAuth(false);
+
+      const cafe = getCafeById(cafeId);
+      if (cafe) {
+        setCafeName(cafe.name);
+        setMenuItems(getMenuItemsByCafeId(cafeId));
+      } else {
+        // Cafe not found, or not matching admin's cafeId
+        router.push('/dashboard'); 
+      }
+      setIsLoading(false);
     }
-  }, [isAuthenticated, isInitialized, router, cafeId, getCafeById, getMenuItemsByCafeId]);
+  }, [currentUser, isInitialized, router, cafeId, getCafeById, getMenuItemsByCafeId]);
 
 
-  if (isCheckingAuth || !isInitialized || isAuthenticated === undefined) {
+  if (isCheckingAuth || !isInitialized || currentUser === undefined) {
     return <div className="text-center py-10">Memuat dan memeriksa otentikasi...</div>;
   }
-  if (!isAuthenticated) {
-    return <div className="text-center py-10">Mengarahkan ke halaman login...</div>;
+  if (!canManage) {
+    return <div className="text-center py-10">Anda tidak diizinkan mengelola menu ini. Mengarahkan...</div>;
   }
 
   if (isLoading) {
@@ -55,7 +56,8 @@ export default function CafeMenuPage() { // This is now the ADMIN menu page
   }
 
   if (!cafeName) {
-    return <div className="text-center py-10">Kafe tidak ditemukan.</div>;
+    // This case implies cafe was not found for the logged in admin
+    return <div className="text-center py-10">Kafe tidak ditemukan atau tidak sesuai.</div>;
   }
 
   const groupedMenuItems = menuItems.reduce((acc, item) => {
@@ -65,9 +67,9 @@ export default function CafeMenuPage() { // This is now the ADMIN menu page
 
   return (
     <div className="space-y-8">
-      <Button variant="outline" onClick={() => router.push('/')} className="mb-6">
+      <Button variant="outline" onClick={() => router.push('/dashboard')} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Kembali ke Daftar Kafe (Admin)
+        Kembali ke Dashboard
       </Button>
       <div className="flex justify-between items-center">
         <h1 className="text-4xl font-headline font-bold text-primary">Kelola Menu {cafeName}</h1>

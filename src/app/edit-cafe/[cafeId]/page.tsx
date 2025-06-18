@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -12,41 +11,55 @@ import { ArrowLeft } from 'lucide-react';
 export default function EditCafePage() {
   const params = useParams();
   const cafeId = typeof params.cafeId === 'string' ? params.cafeId : '';
-  const { getCafeById, isAuthenticated, isInitialized } = useStore();
+  const { getCafeById, currentUser, isInitialized } = useStore();
   const router = useRouter();
   
   const [cafe, setCafe] = useState<Cafe | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [canEdit, setCanEdit] = useState(false);
 
   useEffect(() => {
     if (isInitialized) {
-      if (isAuthenticated === false) {
+      const targetCafe = getCafeById(cafeId);
+      setCafe(targetCafe);
+
+      if (!currentUser) {
         router.push(`/login?redirect=/edit-cafe/${cafeId}`);
-      } else if (isAuthenticated === true) {
-        setIsCheckingAuth(false);
-        if (cafeId) {
-          const foundCafe = getCafeById(cafeId);
-          setCafe(foundCafe);
-          setIsLoading(false);
-          if (!foundCafe) { 
-            router.push('/'); 
-          }
-        } else {
-          setIsLoading(false);
-          router.push('/'); 
-        }
+        return;
       }
+      
+      let hasPermission = false;
+      if (currentUser.role === 'superadmin') {
+        hasPermission = true;
+      } else if (currentUser.role === 'cafeadmin' && currentUser.cafeId === cafeId) {
+        hasPermission = true;
+      }
+
+      setCanEdit(hasPermission);
+      setIsCheckingAuth(false);
+
+      if (!hasPermission) {
+        // If they don't have permission but are logged in, send to their dashboard or homepage
+        router.push(currentUser.role === 'cafeadmin' ? '/dashboard' : '/');
+        return;
+      }
+
+      if (hasPermission && !targetCafe) {
+        // Has permission but cafe doesn't exist
+        router.push(currentUser.role === 'cafeadmin' ? '/dashboard' : '/');
+      }
+      setIsLoading(false);
     }
-  }, [isAuthenticated, isInitialized, router, cafeId, getCafeById]);
+  }, [currentUser, isInitialized, router, cafeId, getCafeById]);
 
 
-  if (isCheckingAuth || !isInitialized || isAuthenticated === undefined) {
+  if (isCheckingAuth || !isInitialized || currentUser === undefined) {
     return <div className="text-center py-10">Memuat dan memeriksa otentikasi...</div>;
   }
 
-  if (!isAuthenticated) {
-      return <div className="text-center py-10">Mengarahkan ke halaman login...</div>;
+  if (!canEdit) {
+      return <div className="text-center py-10">Anda tidak memiliki izin untuk mengedit kafe ini. Mengarahkan...</div>;
   }
 
   if (isLoading || cafe === undefined) {
@@ -57,11 +70,19 @@ export default function EditCafePage() {
     return <div className="text-center py-10">Kafe tidak ditemukan. Anda akan diarahkan kembali.</div>;
   }
 
+  const handleBack = () => {
+    if (currentUser?.role === 'cafeadmin') {
+      router.push('/dashboard');
+    } else {
+      router.push('/');
+    }
+  };
+
   return (
     <div className="space-y-6">
-       <Button variant="outline" onClick={() => router.push('/')} className="mb-6">
+       <Button variant="outline" onClick={handleBack} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Kembali ke Daftar Kafe
+        Kembali
       </Button>
       <CafeForm isEditMode={true} initialCafeData={cafe} />
     </div>

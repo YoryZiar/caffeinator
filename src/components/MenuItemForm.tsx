@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -33,9 +32,11 @@ interface MenuItemFormProps {
 }
 
 export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenuItemData }: MenuItemFormProps) {
-  const { addMenuItem, editMenuItem, menuCategories } = useStore();
+  const { addMenuItem, editMenuItem, getMenuCategoriesForCafe } = useStore();
   const router = useRouter();
   const { toast } = useToast();
+
+  const menuCategories = getMenuCategoriesForCafe(cafeId);
 
   const form = useForm<MenuItemFormValues>({
     resolver: zodResolver(menuItemFormSchema),
@@ -48,7 +49,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
       name: '',
       imageUrl: '',
       price: 0,
-      category: undefined,
+      category: menuCategories.length > 0 ? menuCategories[0] : undefined, // Default to first category if available
     },
   });
 
@@ -60,8 +61,17 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
         price: initialMenuItemData.price,
         category: initialMenuItemData.category,
       });
+    } else if (!isEditMode) {
+      // For new items, if categories change, we might want to update default or clear selection
+      // This simple reset won't do that, but is okay for now.
+      form.reset({
+        name: '',
+        imageUrl: '',
+        price: 0,
+        category: menuCategories.length > 0 ? menuCategories[0] : undefined,
+      });
     }
-  }, [isEditMode, initialMenuItemData, form]);
+  }, [isEditMode, initialMenuItemData, form, menuCategories]); // Added menuCategories to dependency
 
   function onSubmit(data: MenuItemFormValues) {
     try {
@@ -83,7 +93,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
           description: `${data.name} berhasil ditambahkan ke menu ${cafeName}.`,
         });
       }
-      router.push(`/cafes/${cafeId}`);
+      router.push(`/cafes/${cafeId}`); // Back to menu management for this cafe
     } catch (error) {
       toast({
         variant: "destructive",
@@ -99,12 +109,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
       <CardHeader>
         <div className="flex justify-between items-center">
         <CardTitle className="font-headline text-3xl text-primary">{isEditMode ? "Edit Item Menu" : "Tambah Item Menu"}</CardTitle>
-          {!isEditMode && ( // Only show back button on add form if it's directly accessed (though usually through cafe menu)
-             <Button variant="outline" onClick={() => router.back()}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Kembali
-            </Button>
-          )}
+          {/* Back button logic handled by page containing this form */}
         </div>
         <CardDescription>
           {isEditMode ? `Untuk item: ${initialMenuItemData?.name || ''} di kafe: ` : "Untuk kafe: "}
@@ -167,7 +172,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
                     </FormControl>
                     <SelectContent>
                       {menuCategories.length === 0 ? (
-                        <SelectItem value="-" disabled>Belum ada kategori. Tambah di 'Kelola Kategori'.</SelectItem>
+                        <SelectItem value="-" disabled>Belum ada kategori. Tambah di 'Kelola Kategori Saya'.</SelectItem>
                       ) : (
                         menuCategories.map((category) => (
                           <SelectItem key={category} value={category}>
@@ -181,10 +186,11 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || menuCategories.length === 0}>
               <Save className="mr-2 h-4 w-4" />
               {form.formState.isSubmitting ? "Menyimpan..." : (isEditMode ? "Simpan Perubahan" : "Simpan Item Menu")}
             </Button>
+            {menuCategories.length === 0 && <p className="text-xs text-destructive text-center">Anda perlu menambahkan kategori terlebih dahulu sebelum menyimpan item menu.</p>}
           </form>
         </Form>
       </CardContent>

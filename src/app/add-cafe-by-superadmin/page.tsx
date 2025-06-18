@@ -1,12 +1,8 @@
 "use client";
 
-// This page is now intended for Superadmin to add a cafe and assign an admin.
-// If self-registration is the only way, this page might be removed or repurposed.
-// For now, let's make it a superadmin-only page.
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CafeForm } from '@/components/CafeForm'; // CafeForm will need updates for admin fields
+import { CafeForm } from '@/components/CafeForm';
 import { useStore } from '@/lib/store';
 
 export default function AddCafeBySuperAdminPage() {
@@ -34,11 +30,6 @@ export default function AddCafeBySuperAdminPage() {
 
   return (
     <div>
-      {/* CafeForm will be used for adding a cafe by superadmin.
-          It needs to be adapted to also take admin email/password for the new cafe.
-          Or, we create a specific form for this.
-          For now, CafeForm is used, assuming it's adapted or this is a simplified placeholder.
-      */}
       <CafeForm isEditMode={false} isSuperAdminAddMode={true} />
     </div>
   );
