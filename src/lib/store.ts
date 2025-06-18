@@ -11,7 +11,7 @@ interface StoreContextType {
   menuCategories: string[];
   isAuthenticated: boolean | undefined;
   isInitialized: boolean;
-  login: (password: string) => boolean;
+  login: (email: string, password: string) => boolean; // Updated signature
   logout: () => void;
   addCafe: (cafe: Omit<Cafe, 'id'>) => Cafe;
   getCafeById: (cafeId: string) => Cafe | undefined;
@@ -42,7 +42,8 @@ const initialDefaultCategories = [
   "Pencuci Mulut",
 ];
 
-// Hardcoded password for prototype
+// Hardcoded credentials for prototype
+const ADMIN_EMAIL = "admin@example.com";
 const ADMIN_PASSWORD = "admin123";
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
@@ -61,7 +62,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setMenuItems(storedMenuItemsRaw ? JSON.parse(storedMenuItemsRaw) : []);
 
       const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_STORAGE_KEY);
-      const parsedCategories = storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : [];
+      const parsedCategories = storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : null;
       setMenuCategories(Array.isArray(parsedCategories) && parsedCategories.length > 0 && parsedCategories.every(item => typeof item === 'string') ? parsedCategories : initialDefaultCategories);
       
       const storedAuthStatus = localStorage.getItem(AUTH_STATUS_KEY);
@@ -72,7 +73,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setCafes(prev => Array.isArray(prev) ? prev : []);
       setMenuItems(prev => Array.isArray(prev) ? prev : []);
       setMenuCategories(prev => Array.isArray(prev) && prev.length > 0 && prev.every(item => typeof item === 'string') ? prev : initialDefaultCategories);
-      setIsAuthenticated(false); // Default to not authenticated on error
+      setIsAuthenticated(false);
     }
     setIsInitialized(true);
   }, []);
@@ -92,8 +93,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [cafes, menuItems, menuCategories, isAuthenticated, isInitialized]);
 
-  const login = (password: string) => {
-    if (password === ADMIN_PASSWORD) {
+  const login = (email: string, password: string) => {
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       return true;
     }
@@ -103,7 +104,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem(AUTH_STATUS_KEY); // Explicitly remove
+    localStorage.removeItem(AUTH_STATUS_KEY);
   };
 
   const addCafe = (cafeData: Omit<Cafe, 'id'>) => {
@@ -193,10 +194,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setMenuCategories((prevCategories) => prevCategories.filter(cat => cat !== categoryName));
   };
   
-  // if (!isInitialized) { // This can cause issues with initial render of protected routes
-  //   return null; 
-  // }
-
   const providerValue: StoreContextType = {
     cafes,
     menuItems,
