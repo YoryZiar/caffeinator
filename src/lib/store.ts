@@ -9,23 +9,23 @@ interface StoreContextType {
   cafes: Cafe[];
   menuItems: MenuItem[];
   menuCategoriesByCafe: Record<string, string[]>; // cafeId -> string[]
-  users: User[]; // Expose users for superadmin to potentially see (though not explicitly requested yet)
+  users: User[];
   currentUser: User | null;
   isInitialized: boolean;
   login: (email: string, password: string) => boolean;
   logout: () => void;
   registerCafeAndAdmin: (
-    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string }, // imageUrl is now string (Data URI or placeholder)
+    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string },
     adminData: Omit<User, 'id' | 'role' | 'cafeId'>
   ) => { success: boolean; message?: string; newCafe?: Cafe, newUser?: User };
   addCafeBySuperAdmin: (
-    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string }, // imageUrl is now string
+    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string },
     adminEmail: string, adminPassword: string
   ) => { success: boolean; message?: string; newCafe?: Cafe, newUser?: User };
   getCafeById: (cafeId: string) => Cafe | undefined;
   editCafe: (
     cafeId: string,
-    updatedCafeData: Partial<Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'>> & { imageUrl?: string }, // imageUrl is now string
+    updatedCafeData: Partial<Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'>> & { imageUrl?: string },
     newAdminPassword?: string
   ) => boolean;
   deleteCafe: (cafeId: string) => void;
@@ -38,15 +38,14 @@ interface StoreContextType {
   addMenuCategoryForCafe: (cafeId: string, categoryName: string) => boolean;
   editMenuCategoryForCafe: (cafeId: string, oldName: string, newName: string) => boolean;
   deleteMenuCategoryForCafe: (cafeId: string, categoryName: string) => void;
-  // New functions for superadmin dashboard
   getTotalMenuItemCount: () => number;
   getTotalUniqueCategoryCount: () => number;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const CAFE_STORAGE_KEY = 'caffeinator_cafes_v3'; // Incremented version due to imageUrl change
-const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v3'; // Incremented version
+const CAFE_STORAGE_KEY = 'caffeinator_cafes_v4_no_image_persist';
+const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v4_no_image_persist';
 const MENU_CATEGORIES_BY_CAFE_STORAGE_KEY = 'caffeinator_menuCategoriesByCafe_v2';
 const USERS_STORAGE_KEY = 'caffeinator_users_v2';
 const CURRENT_USER_STORAGE_KEY = 'caffeinator_currentUser_v2';
@@ -87,7 +86,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setMenuItems(storedMenuItemsRaw ? JSON.parse(storedMenuItemsRaw) : []);
 
       const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_BY_CAFE_STORAGE_KEY);
-      // Ensure initialDefaultCategories are set for new cafes if not present
       const parsedMenuCategories = storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : {};
       setMenuCategoriesByCafe(parsedMenuCategories);
       
@@ -104,6 +102,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     } catch (error) {
       console.error("Error loading data from localStorage:", error);
+      // Reset to defaults if loading fails
       setCafes([]);
       setMenuItems([]);
       setMenuCategoriesByCafe({});
@@ -116,17 +115,24 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isInitialized) {
       try {
-        localStorage.setItem(CAFE_STORAGE_KEY, JSON.stringify(cafes));
-        localStorage.setItem(MENU_ITEM_STORAGE_KEY, JSON.stringify(menuItems));
+        // Prepare data for localStorage by removing imageUrl to prevent quota errors
+        const cafesToStore = cafes.map(({ imageUrl, ...rest }) => rest);
+        localStorage.setItem(CAFE_STORAGE_KEY, JSON.stringify(cafesToStore));
+
+        const menuItemsToStore = menuItems.map(({ imageUrl, ...rest }) => rest);
+        localStorage.setItem(MENU_ITEM_STORAGE_KEY, JSON.stringify(menuItemsToStore));
+        
         localStorage.setItem(MENU_CATEGORIES_BY_CAFE_STORAGE_KEY, JSON.stringify(menuCategoriesByCafe));
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+        
         if (currentUser) {
           localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
         } else {
           localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
         }
       } catch (error) {
-        console.error("Failed to save data to localStorage", error);
+        console.error("Failed to save data to localStorage (possibly quota exceeded even after trying to reduce size):", error);
+        // Potentially notify user or implement more robust error handling / data trimming
       }
     }
   }, [cafes, menuItems, menuCategoriesByCafe, users, currentUser, isInitialized]);
@@ -143,7 +149,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setCurrentUser(null);
-    // No need to remove from localStorage here, useEffect handles it
   };
 
   const registerCafeAndAdmin = (
@@ -169,7 +174,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       name: cafeData.name,
       address: cafeData.address,
       contactInfo: cafeData.contactInfo,
-      imageUrl: cafeData.imageUrl, // Will be Data URI or placeholder
+      imageUrl: cafeData.imageUrl, 
       id: newCafeId,
       ownerUserId: newAdminId,
     };
@@ -202,7 +207,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       name: cafeData.name,
       address: cafeData.address,
       contactInfo: cafeData.contactInfo,
-      imageUrl: cafeData.imageUrl, // Will be Data URI or placeholder
+      imageUrl: cafeData.imageUrl,
       id: newCafeId,
       ownerUserId: newAdminId,
     };
@@ -225,18 +230,14 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setCafes(prevCafes =>
       prevCafes.map(cafe => {
         if (cafe.id === cafeId) {
-          // Construct the updated cafe object, ensuring imageUrl is handled correctly
           const newDetails: Cafe = {
             ...cafe,
             name: updatedCafeData.name ?? cafe.name,
             address: updatedCafeData.address ?? cafe.address,
             contactInfo: updatedCafeData.contactInfo ?? cafe.contactInfo,
-            // If imageUrl is explicitly provided (even as empty string for removal), use it.
-            // Otherwise, keep the existing one.
             imageUrl: typeof updatedCafeData.imageUrl !== 'undefined' ? updatedCafeData.imageUrl : cafe.imageUrl,
           };
 
-          // Handle admin password change if requested by superadmin (simplified)
           if (newAdminPassword && currentUser?.role === 'superadmin') {
              setUsers(prevUsers => prevUsers.map(u => {
                if (u.cafeId === cafeId && u.role === 'cafeadmin') {
@@ -267,8 +268,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setUsers(prevUsers => prevUsers.filter(user => user.cafeId !== cafeId || user.id !== cafeToDelete.ownerUserId));
     if (currentUser && currentUser.role === 'cafeadmin' && currentUser.cafeId === cafeId) {
         logout();
-    } else if (currentUser && currentUser.role === 'superadmin' && users.find(u => u.id === currentUser.id && u.cafeId === cafeId)) {
-        // This case should not happen as superadmin does not have cafeId
     }
   };
 
@@ -279,7 +278,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       name: menuItemData.name,
       price: menuItemData.price,
       category: menuItemData.category,
-      imageUrl: menuItemData.imageUrl, // Will be Data URI or placeholder
+      imageUrl: menuItemData.imageUrl,
     };
     setMenuItems((prevMenuItems) => [...prevMenuItems, newMenuItem]);
     return newMenuItem;
