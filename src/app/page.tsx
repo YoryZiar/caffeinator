@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react'; // Added React import
+import React from 'react';
 import { useStore } from '@/lib/store';
 import { CafeCard } from '@/components/CafeCard';
 import { Button } from '@/components/ui/button';
@@ -25,14 +25,14 @@ export default function HomePage() {
   }
 
   const SuperAdminStats = () => (
-    <div className="mb-8 grid gap-6 md:grid-cols-3">
+    <div className="mb-8 grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Kafe Terdaftar</CardTitle>
           <ShoppingBag className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{cafes.length}</div>
+          <div className="text-xl sm:text-2xl font-bold">{cafes.length}</div>
         </CardContent>
       </Card>
       <Card>
@@ -41,7 +41,7 @@ export default function HomePage() {
           <BarChart3 className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{getTotalMenuItemCount()}</div>
+          <div className="text-xl sm:text-2xl font-bold">{getTotalMenuItemCount()}</div>
         </CardContent>
       </Card>
       <Card>
@@ -50,18 +50,18 @@ export default function HomePage() {
           <ListTree className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{getTotalUniqueCategoryCount()}</div>
+          <div className="text-xl sm:text-2xl font-bold">{getTotalUniqueCategoryCount()}</div>
         </CardContent>
       </Card>
     </div>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {currentUser?.role === 'superadmin' && <SuperAdminStats />}
       
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-headline font-bold text-primary">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-headline font-bold text-primary">
           {currentUser?.role === 'cafeadmin' && cafes.find(c => c.id === currentUser.cafeId) 
             ? `Kafe Saya: ${cafes.find(c => c.id === currentUser.cafeId)?.name}`
             : "Daftar Kafe"}
@@ -79,9 +79,9 @@ export default function HomePage() {
       {displayedCafes.length === 0 ? (
         <div className="text-center py-12">
           {currentUser?.role === 'cafeadmin' ? (
-             <p className="text-xl text-muted-foreground mb-4">Kafe Anda belum terdata atau ada masalah.</p>
+             <p className="text-lg sm:text-xl text-muted-foreground mb-4">Kafe Anda belum terdata atau ada masalah.</p>
           ) : (
-            <p className="text-xl text-muted-foreground mb-4">Belum ada kafe yang terdaftar.</p>
+            <p className="text-lg sm:text-xl text-muted-foreground mb-4">Belum ada kafe yang terdaftar.</p>
           )}
 
           {isInitialized && (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'cafeadmin')) && (

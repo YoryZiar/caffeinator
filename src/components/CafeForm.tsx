@@ -14,9 +14,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { Cafe } from '@/lib/types';
 import { Building, MapPin, Phone, Save, Image as ImageIconLucide, ArrowLeft, Mail, KeyRound } from 'lucide-react';
-import Image from 'next/image'; // For image preview
+import Image from 'next/image'; 
 
-// Helper function to convert File to Data URI
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -30,7 +29,7 @@ const cafeFormSchemaBase = z.object({
   name: z.string().min(2, { message: "Nama kafe minimal 2 karakter." }).max(50, { message: "Nama kafe maksimal 50 karakter." }),
   address: z.string().min(5, { message: "Alamat minimal 5 karakter." }).max(100, { message: "Alamat maksimal 100 karakter." }),
   contactInfo: z.string().min(5, { message: "Info kontak minimal 5 karakter (e.g., nomor telepon)." }).max(50, { message: "Info kontak maksimal 50 karakter." }),
-  imageUrl: z.string().optional().or(z.literal('')), // Will store Data URI string or be empty
+  imageUrl: z.string().optional().or(z.literal('')), 
 });
 
 const superAdminAddCafeSchema = cafeFormSchemaBase.extend({
@@ -104,8 +103,6 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
 
   async function onSubmit(data: z.infer<typeof currentFormSchema>) {
     try {
-      // The `data.imageUrl` is already a Data URI string from the form state,
-      // or empty if no image was set/uploaded.
       const finalImageUrl = data.imageUrl || (isSuperAdminAddMode || !isEditMode ? `https://placehold.co/600x400.png?text=${encodeURIComponent(data.name)}` : initialCafeData?.imageUrl || '');
       
       if (isEditMode && initialCafeData) {
@@ -158,19 +155,15 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
     if (file) {
       try {
         const dataUri = await fileToDataUri(file);
-        fieldOnChange(dataUri); // Update RHF form state
+        fieldOnChange(dataUri); 
         setImagePreview(dataUri);
       } catch (error) {
         console.error("Error converting file to Data URI:", error);
         toast({ variant: "destructive", title: "Gagal Memproses Gambar", description: "Tidak dapat memuat pratinjau gambar." });
-        fieldOnChange(initialCafeData?.imageUrl || ''); // Revert to initial or empty
+        fieldOnChange(initialCafeData?.imageUrl || ''); 
         setImagePreview(initialCafeData?.imageUrl || null);
       }
     } else {
-      // If user cancels file dialog, do we clear the image?
-      // For now, let's say if they want to remove image, they'd need a "remove" button.
-      // Or, they can upload a transparent pixel.
-      // If no file is selected, the current RHF value for imageUrl remains.
     }
   };
   
@@ -178,28 +171,28 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
   const description = isSuperAdminAddMode ? "Isi detail kafe dan kredensial admin untuk kafe ini." : (isEditMode ? `Perbarui detail untuk kafe ${initialCafeData?.name || ''}.` : "Isi detail kafe.");
 
   return (
-    <Card className="w-full max-w-lg mx-auto shadow-xl">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-         <CardTitle className="font-headline text-3xl text-primary">{title}</CardTitle>
+    <Card className="w-full max-w-md sm:max-w-lg mx-auto shadow-xl">
+      <CardHeader className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+         <CardTitle className="font-headline text-xl sm:text-2xl lg:text-3xl text-primary">{title}</CardTitle>
           {(isEditMode || isSuperAdminAddMode) && (
-            <Button variant="outline" onClick={() => router.back()}>
+            <Button variant="outline" size="sm" onClick={() => router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Kembali
             </Button>
           )}
         </div>
-        <CardDescription>{description}</CardDescription>
+        <CardDescription className="text-xs sm:text-sm">{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 sm:p-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4 text-primary" />Nama Kafe</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><Building className="mr-2 h-4 w-4 text-primary" />Nama Kafe</FormLabel>
                   <FormControl>
                     <Input placeholder="Contoh: Kopi Senja" {...field} />
                   </FormControl>
@@ -212,7 +205,7 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-primary" />Alamat</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><MapPin className="mr-2 h-4 w-4 text-primary" />Alamat</FormLabel>
                   <FormControl>
                     <Input placeholder="Contoh: Jl. Kenangan No. 10" {...field} />
                   </FormControl>
@@ -225,7 +218,7 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
               name="contactInfo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-primary" />Info Kontak</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><Phone className="mr-2 h-4 w-4 text-primary" />Info Kontak</FormLabel>
                   <FormControl>
                     <Input placeholder="Contoh: 08123456789" {...field} />
                   </FormControl>
@@ -235,10 +228,10 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
             />
             <FormField
               control={form.control}
-              name="imageUrl" // This RHF field stores the Data URI string
+              name="imageUrl" 
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><ImageIconLucide className="mr-2 h-4 w-4 text-primary" />Gambar Kafe (Opsional)</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><ImageIconLucide className="mr-2 h-4 w-4 text-primary" />Gambar Kafe (Opsional)</FormLabel>
                   <FormControl>
                     <Input 
                       type="file" 
@@ -250,8 +243,8 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
                   <FormMessage />
                   {imagePreview && (
                     <div className="mt-2">
-                      <p className="text-sm text-muted-foreground">Pratinjau:</p>
-                      <Image src={imagePreview} alt="Pratinjau gambar kafe" width={150} height={150} className="rounded-md object-cover border" data-ai-hint="cafe photo" />
+                      <p className="text-xs sm:text-sm text-muted-foreground">Pratinjau:</p>
+                      <Image src={imagePreview} alt="Pratinjau gambar kafe" width={100} height={100} className="rounded-md object-cover border sm:w-[150px] sm:h-[150px]" data-ai-hint="cafe photo" />
                     </div>
                   )}
                 </FormItem>
@@ -260,13 +253,13 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
 
             {isSuperAdminAddMode && (
               <>
-                <h3 className="text-lg font-semibold text-accent border-b pb-2 pt-4">Detail Admin untuk Kafe Ini</h3>
+                <h3 className="text-md sm:text-lg font-semibold text-accent border-b pb-2 pt-2 sm:pt-4">Detail Admin untuk Kafe Ini</h3>
                 <FormField
                   control={form.control}
                   name="adminEmail"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-primary" />Email Admin</FormLabel>
+                      <FormLabel className="flex items-center text-xs sm:text-sm"><Mail className="mr-2 h-4 w-4 text-primary" />Email Admin</FormLabel>
                       <FormControl>
                         <Input type="email" placeholder="admin.kafe@example.com" {...field} />
                       </FormControl>
@@ -279,7 +272,7 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
                   name="adminPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-primary" />Password Admin</FormLabel>
+                      <FormLabel className="flex items-center text-xs sm:text-sm"><KeyRound className="mr-2 h-4 w-4 text-primary" />Password Admin</FormLabel>
                       <FormControl>
                         <Input type="password" placeholder="Min. 6 karakter" {...field} />
                       </FormControl>

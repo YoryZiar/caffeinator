@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -76,23 +77,23 @@ export function CategoryManager({ cafeId, cafeName }: CategoryManagerProps) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-3xl text-primary flex items-center">
-            <Tag className="mr-3 h-7 w-7" />
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="font-headline text-xl sm:text-2xl lg:text-3xl text-primary flex items-center">
+            <Tag className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" />
             Kelola Kategori Menu untuk {cafeName}
           </CardTitle>
-          <CardDescription>Tambah, ubah, atau hapus kategori untuk item menu kafe Anda.</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">Tambah, ubah, atau hapus kategori untuk item menu kafe Anda.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <Form {...addForm}>
-            <form onSubmit={addForm.handleSubmit(handleAddCategory)} className="flex items-start gap-4 mb-6">
+            <form onSubmit={addForm.handleSubmit(handleAddCategory)} className="flex flex-col sm:flex-row items-stretch sm:items-start gap-2 sm:gap-4 mb-6">
               <FormField
                 control={addForm.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem className="flex-grow">
+                  <FormItem className="flex-grow w-full">
                     <FormLabel className="sr-only">Nama Kategori Baru</FormLabel>
                     <FormControl>
                       <Input placeholder="Nama kategori baru (e.g., Minuman Spesial)" {...field} />
@@ -101,29 +102,29 @@ export function CategoryManager({ cafeId, cafeName }: CategoryManagerProps) {
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={addForm.formState.isSubmitting}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={addForm.formState.isSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {addForm.formState.isSubmitting ? "Menambah..." : "Tambah"}
               </Button>
             </form>
           </Form>
 
-          <Separator className="my-6" />
+          <Separator className="my-4 sm:my-6" />
 
           {menuCategories.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">Belum ada kategori untuk kafe ini. Silakan tambahkan kategori pertama Anda.</p>
+            <p className="text-muted-foreground text-center py-4 text-sm sm:text-base">Belum ada kategori untuk kafe ini. Silakan tambahkan kategori pertama Anda.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-2 sm:space-y-3">
               {menuCategories.map((category) => (
-                <li key={category} className="flex items-center justify-between p-3 bg-card border rounded-md hover:shadow-sm transition-shadow">
-                  <span className="text-card-foreground">{category}</span>
-                  <div className="space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(category)}>
+                <li key={category} className="flex items-center justify-between p-2 sm:p-3 bg-card border rounded-md hover:shadow-sm transition-shadow">
+                  <span className="text-card-foreground text-sm sm:text-base">{category}</span>
+                  <div className="space-x-1 sm:space-x-2">
+                    <Button variant="outline" size="xs" className="text-xs sm:text-sm sm:size-sm" onClick={() => openEditDialog(category)}>
                       <Edit3 className="mr-1 h-3 w-3" /> Ubah
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
+                        <Button variant="destructive" size="xs" className="text-xs sm:text-sm sm:size-sm">
                           <Trash2 className="mr-1 h-3 w-3" /> Hapus
                         </Button>
                       </AlertDialogTrigger>
@@ -149,7 +150,7 @@ export function CategoryManager({ cafeId, cafeName }: CategoryManagerProps) {
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Ubah Nama Kategori</DialogTitle>
             <DialogDescription>

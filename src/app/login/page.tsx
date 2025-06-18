@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -49,25 +50,25 @@ export default function LoginPage() {
     }
   };
 
-  if (!isInitialized || currentUser === undefined) { // Check for undefined during init
+  if (!isInitialized || currentUser === undefined) { 
     return <div className="text-center py-10">Memuat...</div>;
   }
   
-  if (currentUser) { // If currentUser is not null, they are logged in
+  if (currentUser) { 
      return <div className="text-center py-10">Anda sudah login. Mengarahkan...</div>;
   }
 
   return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+    <div className="flex justify-center items-center min-h-[calc(100vh-200px)] px-4">
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-primary text-center">Login</CardTitle>
-          <CardDescription className="text-center">Masukkan email dan password Anda.</CardDescription>
+          <CardTitle className="font-headline text-xl sm:text-2xl text-primary text-center">Login</CardTitle>
+          <CardDescription className="text-center text-xs sm:text-sm">Masukkan email dan password Anda.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center">
+              <Label htmlFor="email" className="flex items-center text-xs sm:text-sm">
                 <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
                 Email
               </Label>
@@ -81,7 +82,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-xs sm:text-sm">Password</Label>
               <Input
                 id="password"
                 type="password"

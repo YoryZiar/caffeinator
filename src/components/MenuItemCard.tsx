@@ -40,7 +40,7 @@ export function MenuItemCard({ menuItem }: MenuItemCardProps) {
 
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out group">
-      <div className="relative w-full h-40">
+      <div className="relative w-full h-32 sm:h-40">
         <Image
           src={imageSrc}
           alt={menuItem.name}
@@ -50,29 +50,29 @@ export function MenuItemCard({ menuItem }: MenuItemCardProps) {
           data-ai-hint={menuItem.imageUrl && !menuItem.imageUrl.startsWith('data:') ? "food dish" : "menu item image"}
         />
       </div>
-      <CardHeader className="pb-2">
-        <CardTitle className="font-headline text-xl">{menuItem.name}</CardTitle>
+      <CardHeader className="pb-2 pt-3 px-3 sm:px-4">
+        <CardTitle className="font-headline text-lg sm:text-xl">{menuItem.name}</CardTitle>
       </CardHeader>
-      <CardContent className="pb-3 pt-0 space-y-2">
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Tag className="w-4 h-4 mr-2 text-accent" /> {menuItem.category}
+      <CardContent className="pb-3 pt-0 px-3 sm:px-4 space-y-1 sm:space-y-2">
+        <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+          <Tag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-accent" /> {menuItem.category}
         </div>
-         <div className="flex items-center font-semibold text-primary">
-          <DollarSign className="w-5 h-5 mr-1" /> 
+         <div className="flex items-center font-semibold text-primary text-sm sm:text-base">
+          <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-1" /> 
           {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(menuItem.price)}
         </div>
       </CardContent>
-      <CardFooter className="bg-muted/5 p-3 grid grid-cols-2 gap-2">
-        <Button variant="outline" size="sm" asChild>
+      <CardFooter className="bg-muted/5 p-2 sm:p-3 grid grid-cols-2 gap-2">
+        <Button variant="outline" size="xs" className="text-xs sm:text-sm sm:size-sm" asChild>
           <Link href={`/cafes/${menuItem.cafeId}/edit-menu/${menuItem.id}`}>
-            <Edit3 className="mr-2 h-4 w-4" />
+            <Edit3 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             Ubah
           </Link>
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm">
-              <Trash2 className="mr-2 h-4 w-4" />
+            <Button variant="destructive" size="xs" className="text-xs sm:text-sm sm:size-sm">
+              <Trash2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               Hapus
             </Button>
           </AlertDialogTrigger>

@@ -17,7 +17,6 @@ interface CafeCardProps {
 
 export function CafeCard({ cafe }: CafeCardProps) {
   const imageSrc = cafe.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(cafe.name)}`;
-  // For Data URIs or placeholders, ai-hint might not be as relevant or needs dynamic generation
   const imageAlt = `Gambar untuk ${cafe.name}`;
   
   const { deleteCafe, currentUser, isInitialized } = useStore();
@@ -45,7 +44,7 @@ export function CafeCard({ cafe }: CafeCardProps) {
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out group">
-      <div className="relative w-full h-48">
+      <div className="relative w-full h-40 sm:h-48">
         <Image
           src={imageSrc}
           alt={imageAlt}
@@ -55,18 +54,18 @@ export function CafeCard({ cafe }: CafeCardProps) {
           data-ai-hint={cafe.imageUrl && !cafe.imageUrl.startsWith('data:') ? "cafe exterior" : "cafe image"}
         />
       </div>
-      <CardHeader>
-        <CardTitle className="font-headline text-2xl">{cafe.name}</CardTitle>
-        <CardDescription className="flex items-center text-sm pt-1">
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="font-headline text-xl sm:text-2xl">{cafe.name}</CardTitle>
+        <CardDescription className="flex items-center text-xs sm:text-sm pt-1">
           <MapPin className="w-4 h-4 mr-2 text-muted-foreground" /> {cafe.address}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow">
-        <div className="flex items-center text-sm text-muted-foreground">
+      <CardContent className="flex-grow p-4 sm:p-6 pt-0">
+        <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
           <Phone className="w-4 h-4 mr-2" /> {cafe.contactInfo}
         </div>
       </CardContent>
-      <CardFooter className="grid grid-cols-1 gap-2">
+      <CardFooter className="grid grid-cols-1 gap-2 p-4 sm:p-6 pt-0">
         <Button asChild className="w-full" variant="secondary">
           <Link href={`/menu/${cafe.id}`}>
             <BookOpen className="mr-2 h-4 w-4" />
@@ -91,7 +90,7 @@ export function CafeCard({ cafe }: CafeCardProps) {
                 </Link>
               </Button>
             )}
-            {(isSuperAdmin || (isCafeOwner && currentUser?.cafeId === cafe.id)) && ( // Cafe owner can delete their own cafe, superadmin can delete any
+            {(isSuperAdmin || (isCafeOwner && currentUser?.cafeId === cafe.id)) && ( 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="w-full">

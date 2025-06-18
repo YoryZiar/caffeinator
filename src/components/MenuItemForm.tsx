@@ -15,9 +15,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { MenuItem } from '@/lib/types';
 import { Utensils, Image as ImageIconLucide, DollarSign, ListChecks, Save } from 'lucide-react';
-import Image from 'next/image'; // For image preview
+import Image from 'next/image'; 
 
-// Helper function to convert File to Data URI
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -29,7 +28,7 @@ const fileToDataUri = (file: File): Promise<string> => {
 
 const menuItemFormSchema = z.object({
   name: z.string().min(2, { message: "Nama menu minimal 2 karakter." }).max(50, { message: "Nama menu maksimal 50 karakter." }),
-  imageUrl: z.string().optional().or(z.literal('')), // Will store Data URI string or be empty
+  imageUrl: z.string().optional().or(z.literal('')), 
   price: z.coerce.number().min(0, { message: "Harga tidak boleh negatif." }),
   category: z.string().min(1, { message: "Kategori harus dipilih."}),
 });
@@ -88,7 +87,6 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
 
   async function onSubmit(data: MenuItemFormValues) {
     try {
-      // data.imageUrl is already a Data URI string or empty
       const finalImageUrl = data.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(data.name)}`;
       
       const fullMenuItemData = { 
@@ -127,40 +125,38 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
     if (file) {
       try {
         const dataUri = await fileToDataUri(file);
-        fieldOnChange(dataUri); // Update RHF form state
+        fieldOnChange(dataUri); 
         setImagePreview(dataUri);
       } catch (error) {
         console.error("Error converting file to Data URI:", error);
         toast({ variant: "destructive", title: "Gagal Memproses Gambar", description: "Tidak dapat memuat pratinjau gambar." });
-        fieldOnChange(initialMenuItemData?.imageUrl || ''); // Revert to initial or empty
+        fieldOnChange(initialMenuItemData?.imageUrl || ''); 
         setImagePreview(initialMenuItemData?.imageUrl || null);
       }
     } else {
-      // fieldOnChange(initialMenuItemData?.imageUrl || ''); // Optional: revert if selection cancelled
-      // setImagePreview(initialMenuItemData?.imageUrl || null);
     }
   };
 
   return (
-    <Card className="w-full max-w-lg mx-auto shadow-xl">
-      <CardHeader>
+    <Card className="w-full max-w-md sm:max-w-lg mx-auto shadow-xl">
+      <CardHeader className="p-4 sm:p-6">
         <div className="flex justify-between items-center">
-        <CardTitle className="font-headline text-3xl text-primary">{isEditMode ? "Edit Item Menu" : "Tambah Item Menu"}</CardTitle>
+        <CardTitle className="font-headline text-xl sm:text-2xl lg:text-3xl text-primary">{isEditMode ? "Edit Item Menu" : "Tambah Item Menu"}</CardTitle>
         </div>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           {isEditMode ? `Untuk item: ${initialMenuItemData?.name || ''} di kafe: ` : "Untuk kafe: "}
           <span className="font-semibold">{cafeName}</span>
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 sm:p-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><Utensils className="mr-2 h-4 w-4 text-primary" />Nama Menu</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><Utensils className="mr-2 h-4 w-4 text-primary" />Nama Menu</FormLabel>
                   <FormControl>
                     <Input placeholder="Contoh: Nasi Goreng Spesial" {...field} />
                   </FormControl>
@@ -170,10 +166,10 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
             />
             <FormField
               control={form.control}
-              name="imageUrl" // RHF field stores Data URI string
+              name="imageUrl" 
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><ImageIconLucide className="mr-2 h-4 w-4 text-primary" />Gambar Menu (Opsional)</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><ImageIconLucide className="mr-2 h-4 w-4 text-primary" />Gambar Menu (Opsional)</FormLabel>
                   <FormControl>
                      <Input 
                       type="file" 
@@ -185,8 +181,8 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
                   <FormMessage />
                   {imagePreview && (
                     <div className="mt-2">
-                      <p className="text-sm text-muted-foreground">Pratinjau:</p>
-                      <Image src={imagePreview} alt="Pratinjau gambar menu" width={150} height={150} className="rounded-md object-cover border" data-ai-hint="food item" />
+                      <p className="text-xs sm:text-sm text-muted-foreground">Pratinjau:</p>
+                      <Image src={imagePreview} alt="Pratinjau gambar menu" width={100} height={100} className="rounded-md object-cover border sm:w-[150px] sm:h-[150px]" data-ai-hint="food item" />
                     </div>
                   )}
                 </FormItem>
@@ -197,7 +193,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
               name="price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><DollarSign className="mr-2 h-4 w-4 text-primary" />Harga (Rp)</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><DollarSign className="mr-2 h-4 w-4 text-primary" />Harga (Rp)</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="Contoh: 25000" {...field} />
                   </FormControl>
@@ -210,7 +206,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><ListChecks className="mr-2 h-4 w-4 text-primary" />Kategori Menu</FormLabel>
+                  <FormLabel className="flex items-center text-xs sm:text-sm"><ListChecks className="mr-2 h-4 w-4 text-primary" />Kategori Menu</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
