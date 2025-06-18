@@ -9,6 +9,10 @@ interface StoreContextType {
   cafes: Cafe[];
   menuItems: MenuItem[];
   menuCategories: string[];
+  isAuthenticated: boolean | undefined;
+  isInitialized: boolean;
+  login: (password: string) => boolean;
+  logout: () => void;
   addCafe: (cafe: Omit<Cafe, 'id'>) => Cafe;
   getCafeById: (cafeId: string) => Cafe | undefined;
   editCafe: (cafeId: string, updatedCafeData: Omit<Cafe, 'id'>) => boolean;
@@ -28,6 +32,7 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 const CAFE_STORAGE_KEY = 'caffeinator_cafes';
 const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems';
 const MENU_CATEGORIES_STORAGE_KEY = 'caffeinator_menuCategories';
+const AUTH_STATUS_KEY = 'caffeinator_authStatus';
 
 const initialDefaultCategories = [
   "Makanan Utama",
@@ -37,50 +42,37 @@ const initialDefaultCategories = [
   "Pencuci Mulut",
 ];
 
+// Hardcoded password for prototype
+const ADMIN_PASSWORD = "admin123";
+
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [cafes, setCafes] = useState<Cafe[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuCategories, setMenuCategories] = useState<string[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | undefined>(undefined);
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     try {
       const storedCafesRaw = localStorage.getItem(CAFE_STORAGE_KEY);
-      if (storedCafesRaw) {
-        const parsedCafes = JSON.parse(storedCafesRaw);
-        if (Array.isArray(parsedCafes)) {
-          setCafes(parsedCafes);
-        } else {
-          setCafes([]);
-        }
-      }
+      setCafes(storedCafesRaw ? JSON.parse(storedCafesRaw) : []);
 
       const storedMenuItemsRaw = localStorage.getItem(MENU_ITEM_STORAGE_KEY);
-      if (storedMenuItemsRaw) {
-        const parsedMenuItems = JSON.parse(storedMenuItemsRaw);
-        if (Array.isArray(parsedMenuItems)) {
-          setMenuItems(parsedMenuItems);
-        } else {
-          setMenuItems([]);
-        }
-      }
+      setMenuItems(storedMenuItemsRaw ? JSON.parse(storedMenuItemsRaw) : []);
 
       const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_STORAGE_KEY);
-      if (storedMenuCategoriesRaw) {
-        const parsedMenuCategories = JSON.parse(storedMenuCategoriesRaw);
-         if (Array.isArray(parsedMenuCategories) && parsedMenuCategories.every(item => typeof item === 'string')) {
-          setMenuCategories(parsedMenuCategories.length > 0 ? parsedMenuCategories : initialDefaultCategories);
-        } else {
-          setMenuCategories(initialDefaultCategories);
-        }
-      } else {
-        setMenuCategories(initialDefaultCategories);
-      }
+      const parsedCategories = storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : [];
+      setMenuCategories(Array.isArray(parsedCategories) && parsedCategories.length > 0 && parsedCategories.every(item => typeof item === 'string') ? parsedCategories : initialDefaultCategories);
+      
+      const storedAuthStatus = localStorage.getItem(AUTH_STATUS_KEY);
+      setIsAuthenticated(storedAuthStatus === 'true');
+
     } catch (error) {
       console.error("Error loading data from localStorage:", error);
       setCafes(prev => Array.isArray(prev) ? prev : []);
       setMenuItems(prev => Array.isArray(prev) ? prev : []);
       setMenuCategories(prev => Array.isArray(prev) && prev.length > 0 && prev.every(item => typeof item === 'string') ? prev : initialDefaultCategories);
+      setIsAuthenticated(false); // Default to not authenticated on error
     }
     setIsInitialized(true);
   }, []);
@@ -89,31 +81,30 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     if (isInitialized) {
       try {
         localStorage.setItem(CAFE_STORAGE_KEY, JSON.stringify(cafes));
-      } catch (error) {
-        console.error("Failed to save cafes to localStorage", error);
-      }
-    }
-  }, [cafes, isInitialized]);
-
-  useEffect(() => {
-    if (isInitialized) {
-      try {
         localStorage.setItem(MENU_ITEM_STORAGE_KEY, JSON.stringify(menuItems));
-      } catch (error) {
-        console.error("Failed to save menu items to localStorage", error);
-      }
-    }
-  }, [menuItems, isInitialized]);
-
-  useEffect(() => {
-    if (isInitialized) {
-      try {
         localStorage.setItem(MENU_CATEGORIES_STORAGE_KEY, JSON.stringify(menuCategories));
+        if (isAuthenticated !== undefined) {
+          localStorage.setItem(AUTH_STATUS_KEY, String(isAuthenticated));
+        }
       } catch (error) {
-        console.error("Failed to save menu categories to localStorage", error);
+        console.error("Failed to save data to localStorage", error);
       }
     }
-  }, [menuCategories, isInitialized]);
+  }, [cafes, menuItems, menuCategories, isAuthenticated, isInitialized]);
+
+  const login = (password: string) => {
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      return true;
+    }
+    setIsAuthenticated(false);
+    return false;
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem(AUTH_STATUS_KEY); // Explicitly remove
+  };
 
   const addCafe = (cafeData: Omit<Cafe, 'id'>) => {
     const newCafe: Cafe = { ...cafeData, id: Date.now().toString() };
@@ -202,14 +193,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setMenuCategories((prevCategories) => prevCategories.filter(cat => cat !== categoryName));
   };
   
-  if (!isInitialized) {
-    return null; 
-  }
+  // if (!isInitialized) { // This can cause issues with initial render of protected routes
+  //   return null; 
+  // }
 
   const providerValue: StoreContextType = {
     cafes,
     menuItems,
     menuCategories,
+    isAuthenticated,
+    isInitialized,
+    login,
+    logout,
     addCafe,
     getCafeById,
     editCafe,

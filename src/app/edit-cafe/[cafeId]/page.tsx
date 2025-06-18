@@ -12,33 +12,48 @@ import { ArrowLeft } from 'lucide-react';
 export default function EditCafePage() {
   const params = useParams();
   const cafeId = typeof params.cafeId === 'string' ? params.cafeId : '';
-  const { getCafeById } = useStore();
+  const { getCafeById, isAuthenticated, isInitialized } = useStore();
   const router = useRouter();
   
-  const [cafe, setCafe] = useState<Cafe | null | undefined>(undefined); // undefined for loading, null for not found
+  const [cafe, setCafe] = useState<Cafe | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
-    if (cafeId) {
-      const foundCafe = getCafeById(cafeId);
-      setCafe(foundCafe);
-      setIsLoading(false);
-      if (!foundCafe && !isLoading) { // Ensure isLoading is false before redirecting for not found
-        router.push('/'); // Redirect if cafe not found after initial load attempt
+    if (isInitialized) {
+      if (isAuthenticated === false) {
+        router.push(`/login?redirect=/edit-cafe/${cafeId}`);
+      } else if (isAuthenticated === true) {
+        setIsCheckingAuth(false);
+        if (cafeId) {
+          const foundCafe = getCafeById(cafeId);
+          setCafe(foundCafe);
+          setIsLoading(false);
+          if (!foundCafe) { 
+            router.push('/'); 
+          }
+        } else {
+          setIsLoading(false);
+          router.push('/'); 
+        }
       }
-    } else {
-      setIsLoading(false);
-      router.push('/'); // Redirect if no cafeId
     }
-  }, [cafeId, getCafeById, router, isLoading]);
+  }, [isAuthenticated, isInitialized, router, cafeId, getCafeById]);
 
+
+  if (isCheckingAuth || !isInitialized || isAuthenticated === undefined) {
+    return <div className="text-center py-10">Memuat dan memeriksa otentikasi...</div>;
+  }
+
+  if (!isAuthenticated) {
+      return <div className="text-center py-10">Mengarahkan ke halaman login...</div>;
+  }
 
   if (isLoading || cafe === undefined) {
     return <div className="text-center py-10">Memuat data kafe...</div>;
   }
 
   if (cafe === null) {
-    // This state is reached if getCafeById returned undefined and useEffect has run
     return <div className="text-center py-10">Kafe tidak ditemukan. Anda akan diarahkan kembali.</div>;
   }
 

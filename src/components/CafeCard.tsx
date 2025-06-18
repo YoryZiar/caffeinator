@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { MapPin, Phone, Eye, Edit3, Trash2 } from 'lucide-react';
+import { MapPin, Phone, Eye, Edit3, Trash2, BookOpen } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -21,7 +21,7 @@ export function CafeCard({ cafe }: CafeCardProps) {
   const imageAlt = cafe.imageUrl ? `Gambar untuk ${cafe.name}` : `Placeholder untuk ${cafe.name}`;
   const aiHint = cafe.imageUrl ? "cafe interior" : "cafe restaurant";
   
-  const { deleteCafe } = useStore();
+  const { deleteCafe, isAuthenticated, isInitialized } = useStore();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -65,39 +65,49 @@ export function CafeCard({ cafe }: CafeCardProps) {
           <Phone className="w-4 h-4 mr-2" /> {cafe.contactInfo}
         </div>
       </CardContent>
-      <CardFooter className="grid grid-cols-3 gap-2">
-        <Button asChild className="w-full">
-          <Link href={`/cafes/${cafe.id}`}>
-            <Eye className="mr-2 h-4 w-4" />
-            Menu
+      <CardFooter className="grid grid-cols-1 gap-2">
+        <Button asChild className="w-full" variant="secondary">
+          <Link href={`/menu/${cafe.id}`}>
+            <BookOpen className="mr-2 h-4 w-4" />
+            Lihat Menu Publik
           </Link>
         </Button>
-        <Button variant="outline" asChild className="w-full">
-          <Link href={`/edit-cafe/${cafe.id}`}>
-            <Edit3 className="mr-2 h-4 w-4" />
-            Edit
-          </Link>
-        </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="w-full">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Hapus
+        {isInitialized && isAuthenticated && (
+          <div className="grid grid-cols-3 gap-2 mt-2">
+            <Button asChild className="w-full col-span-1">
+              <Link href={`/cafes/${cafe.id}`}>
+                <Eye className="mr-2 h-4 w-4" />
+                Admin
+              </Link>
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Anda yakin ingin menghapus kafe ini?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tindakan ini akan menghapus kafe "{cafe.name}" beserta semua item menunya secara permanen. Tindakan ini tidak dapat dibatalkan.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Batal</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteCafe}>Ya, Hapus</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            <Button variant="outline" asChild className="w-full col-span-1">
+              <Link href={`/edit-cafe/${cafe.id}`}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full col-span-1">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Hapus
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Anda yakin ingin menghapus kafe ini?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tindakan ini akan menghapus kafe "{cafe.name}" beserta semua item menunya secara permanen. Tindakan ini tidak dapat dibatalkan.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteCafe}>Ya, Hapus</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </CardFooter>
     </Card>
   );
