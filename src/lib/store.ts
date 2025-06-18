@@ -11,10 +11,12 @@ interface StoreContextType {
   menuCategories: string[];
   addCafe: (cafe: Omit<Cafe, 'id'>) => Cafe;
   getCafeById: (cafeId: string) => Cafe | undefined;
+  editCafe: (cafeId: string, updatedCafeData: Omit<Cafe, 'id'>) => boolean;
+  deleteCafe: (cafeId: string) => void;
   addMenuItem: (menuItem: Omit<MenuItem, 'id'>) => MenuItem;
   getMenuItemsByCafeId: (cafeId: string) => MenuItem[];
-  addMenuCategory: (categoryName: string) => boolean; // return true if added, false if duplicate
-  editMenuCategory: (oldName: string, newName: string) => boolean; // return true if edited, false if newName exists or oldName not found
+  addMenuCategory: (categoryName: string) => boolean;
+  editMenuCategory: (oldName: string, newName: string) => boolean;
   deleteMenuCategory: (categoryName: string) => void;
 }
 
@@ -65,20 +67,17 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_STORAGE_KEY);
       if (storedMenuCategoriesRaw) {
         const parsedMenuCategories = JSON.parse(storedMenuCategoriesRaw);
-        if (Array.isArray(parsedMenuCategories)) {
-          setMenuCategories(parsedMenuCategories);
+         if (Array.isArray(parsedMenuCategories) && parsedMenuCategories.every(item => typeof item === 'string')) {
+          setMenuCategories(parsedMenuCategories.length > 0 ? parsedMenuCategories : initialDefaultCategories);
         } else {
-          // This handles cases where stored data is "undefined", null, or other non-array after parsing
-          console.warn("Stored menu categories data is not an array. Resetting to defaults.");
+          console.warn("Stored menu categories data is not a valid array of strings. Resetting to defaults.");
           setMenuCategories(initialDefaultCategories);
         }
       } else {
-        // No categories stored, use initial defaults
         setMenuCategories(initialDefaultCategories);
       }
     } catch (error) {
       console.error("Error loading data from localStorage:", error);
-      // Fallback to defaults if any parsing or getItem fails
       setCafes(prev => Array.isArray(prev) ? prev : []);
       setMenuItems(prev => Array.isArray(prev) ? prev : []);
       setMenuCategories(prev => Array.isArray(prev) && prev.length > 0 ? prev : initialDefaultCategories);
@@ -126,6 +125,20 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return cafes.find(cafe => cafe.id === cafeId);
   };
 
+  const editCafe = (cafeId: string, updatedCafeData: Omit<Cafe, 'id'>) => {
+    setCafes(prevCafes => 
+      prevCafes.map(cafe => 
+        cafe.id === cafeId ? { ...cafe, ...updatedCafeData } : cafe
+      )
+    );
+    return true; // Assume success for simplicity, add error handling if needed
+  };
+
+  const deleteCafe = (cafeId: string) => {
+    setCafes(prevCafes => prevCafes.filter(cafe => cafe.id !== cafeId));
+    setMenuItems(prevMenuItems => prevMenuItems.filter(item => item.cafeId !== cafeId));
+  };
+
   const addMenuItem = (menuItemData: Omit<MenuItem, 'id'>) => {
     const newMenuItem: MenuItem = { ...menuItemData, id: Date.now().toString() };
     setMenuItems((prevMenuItems) => [...prevMenuItems, newMenuItem]);
@@ -138,20 +151,20 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const addMenuCategory = (categoryName: string) => {
     if (menuCategories.includes(categoryName)) {
-      return false; // Duplicate
+      return false; 
     }
     setMenuCategories((prevCategories) => [...prevCategories, categoryName].sort());
     return true;
   };
 
   const editMenuCategory = (oldName: string, newName: string) => {
-    if (oldName === newName) return true; // No change needed
+    if (oldName === newName) return true; 
     if (menuCategories.includes(newName)) {
-      return false; // New name already exists
+      return false; 
     }
     const oldNameIndex = menuCategories.indexOf(oldName);
     if (oldNameIndex === -1) {
-      return false; // Old name not found
+      return false;
     }
 
     setMenuCategories((prevCategories) => {
@@ -182,6 +195,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     menuCategories,
     addCafe,
     getCafeById,
+    editCafe,
+    deleteCafe,
     addMenuItem,
     getMenuItemsByCafeId,
     addMenuCategory,

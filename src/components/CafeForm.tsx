@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Building, MapPin, Phone, Save, Image as ImageIcon } from 'lucide-react';
+import type { Cafe } from '@/lib/types';
+import { Building, MapPin, Phone, Save, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 
 const cafeFormSchema = z.object({
   name: z.string().min(2, { message: "Nama kafe minimal 2 karakter." }).max(50, { message: "Nama kafe maksimal 50 karakter." }),
@@ -22,14 +24,24 @@ const cafeFormSchema = z.object({
 
 type CafeFormValues = z.infer<typeof cafeFormSchema>;
 
-export function CafeForm() {
-  const { addCafe } = useStore();
+interface CafeFormProps {
+  isEditMode?: boolean;
+  initialCafeData?: Cafe;
+}
+
+export function CafeForm({ isEditMode = false, initialCafeData }: CafeFormProps) {
+  const { addCafe, editCafe } = useStore();
   const router = useRouter();
   const { toast } = useToast();
 
   const form = useForm<CafeFormValues>({
     resolver: zodResolver(cafeFormSchema),
-    defaultValues: {
+    defaultValues: initialCafeData && isEditMode ? {
+      name: initialCafeData.name,
+      address: initialCafeData.address,
+      contactInfo: initialCafeData.contactInfo,
+      imageUrl: initialCafeData.imageUrl || '',
+    } : {
       name: '',
       address: '',
       contactInfo: '',
@@ -37,29 +49,59 @@ export function CafeForm() {
     },
   });
 
+  useEffect(() => {
+    if (isEditMode && initialCafeData) {
+      form.reset({
+        name: initialCafeData.name,
+        address: initialCafeData.address,
+        contactInfo: initialCafeData.contactInfo,
+        imageUrl: initialCafeData.imageUrl || '',
+      });
+    }
+  }, [isEditMode, initialCafeData, form]);
+
   function onSubmit(data: CafeFormValues) {
     try {
-      addCafe(data); // imageUrl will be included if provided
-      toast({
-        title: "Kafe Ditambahkan!",
-        description: `${data.name} berhasil ditambahkan.`,
-      });
-      router.push('/');
+      if (isEditMode && initialCafeData) {
+        editCafe(initialCafeData.id, data);
+        toast({
+          title: "Kafe Diperbarui!",
+          description: `${data.name} berhasil diperbarui.`,
+        });
+        router.push('/'); 
+      } else {
+        addCafe(data);
+        toast({
+          title: "Kafe Ditambahkan!",
+          description: `${data.name} berhasil ditambahkan.`,
+        });
+        router.push('/');
+      }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Gagal Menambahkan Kafe",
+        title: `Gagal ${isEditMode ? "Memperbarui" : "Menambahkan"} Kafe`,
         description: "Terjadi kesalahan. Silakan coba lagi.",
       });
-      console.error("Failed to add cafe:", error);
+      console.error(`Failed to ${isEditMode ? "edit" : "add"} cafe:`, error);
     }
   }
 
   return (
     <Card className="w-full max-w-lg mx-auto shadow-xl">
       <CardHeader>
-        <CardTitle className="font-headline text-3xl text-primary">Tambah Kafe Baru</CardTitle>
-        <CardDescription>Isi detail kafe Anda di bawah ini.</CardDescription>
+        <div className="flex justify-between items-center">
+         <CardTitle className="font-headline text-3xl text-primary">{isEditMode ? "Edit Kafe" : "Tambah Kafe Baru"}</CardTitle>
+          {!isEditMode && (
+            <Button variant="outline" onClick={() => router.push('/')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Kembali
+            </Button>
+          )}
+        </div>
+        <CardDescription>
+          {isEditMode ? `Perbarui detail untuk kafe ${initialCafeData?.name || ''}.` : "Isi detail kafe Anda di bawah ini."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -118,7 +160,7 @@ export function CafeForm() {
             />
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
               <Save className="mr-2 h-4 w-4" />
-              {form.formState.isSubmitting ? "Menyimpan..." : "Simpan Kafe"}
+              {form.formState.isSubmitting ? "Menyimpan..." : (isEditMode ? "Simpan Perubahan" : "Simpan Kafe")}
             </Button>
           </form>
         </Form>
