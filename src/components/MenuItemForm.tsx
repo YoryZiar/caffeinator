@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,14 +13,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-// import { MenuItemCategories, type MenuItemCategory } from '@/lib/types'; // Dihapus, ambil dari store
-import { Utensils, Image as ImageIcon, DollarSign, ListChecks, Save } from 'lucide-react';
+import type { MenuItem } from '@/lib/types';
+import { Utensils, Image as ImageIcon, DollarSign, ListChecks, Save, ArrowLeft } from 'lucide-react';
 
 const menuItemFormSchema = z.object({
   name: z.string().min(2, { message: "Nama menu minimal 2 karakter." }).max(50, { message: "Nama menu maksimal 50 karakter." }),
   imageUrl: z.string().url({ message: "URL gambar tidak valid." }).optional().or(z.literal('')),
   price: z.coerce.number().min(0, { message: "Harga tidak boleh negatif." }),
-  category: z.string().min(1, { message: "Kategori harus dipilih."}), // Diubah menjadi string, tidak lagi enum
+  category: z.string().min(1, { message: "Kategori harus dipilih."}),
 });
 
 type MenuItemFormValues = z.infer<typeof menuItemFormSchema>;
@@ -27,16 +28,23 @@ type MenuItemFormValues = z.infer<typeof menuItemFormSchema>;
 interface MenuItemFormProps {
   cafeId: string;
   cafeName: string;
+  isEditMode?: boolean;
+  initialMenuItemData?: MenuItem;
 }
 
-export function MenuItemForm({ cafeId, cafeName }: MenuItemFormProps) {
-  const { addMenuItem, menuCategories } = useStore(); // Ambil menuCategories dari store
+export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenuItemData }: MenuItemFormProps) {
+  const { addMenuItem, editMenuItem, menuCategories } = useStore();
   const router = useRouter();
   const { toast } = useToast();
 
   const form = useForm<MenuItemFormValues>({
     resolver: zodResolver(menuItemFormSchema),
-    defaultValues: {
+    defaultValues: initialMenuItemData && isEditMode ? {
+      name: initialMenuItemData.name,
+      imageUrl: initialMenuItemData.imageUrl || '',
+      price: initialMenuItemData.price,
+      category: initialMenuItemData.category,
+    } : {
       name: '',
       imageUrl: '',
       price: 0,
@@ -44,29 +52,64 @@ export function MenuItemForm({ cafeId, cafeName }: MenuItemFormProps) {
     },
   });
 
+  useEffect(() => {
+    if (isEditMode && initialMenuItemData) {
+      form.reset({
+        name: initialMenuItemData.name,
+        imageUrl: initialMenuItemData.imageUrl || '',
+        price: initialMenuItemData.price,
+        category: initialMenuItemData.category,
+      });
+    }
+  }, [isEditMode, initialMenuItemData, form]);
+
   function onSubmit(data: MenuItemFormValues) {
     try {
-      addMenuItem({ ...data, cafeId, imageUrl: data.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(data.name)}` });
-      toast({
-        title: "Item Menu Ditambahkan!",
-        description: `${data.name} berhasil ditambahkan ke menu ${cafeName}.`,
-      });
+      const fullMenuItemData = { 
+        ...data, 
+        imageUrl: data.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(data.name)}`
+      };
+
+      if (isEditMode && initialMenuItemData) {
+        editMenuItem(initialMenuItemData.id, fullMenuItemData);
+        toast({
+          title: "Item Menu Diperbarui!",
+          description: `${data.name} berhasil diperbarui di menu ${cafeName}.`,
+        });
+      } else {
+        addMenuItem({ ...fullMenuItemData, cafeId });
+        toast({
+          title: "Item Menu Ditambahkan!",
+          description: `${data.name} berhasil ditambahkan ke menu ${cafeName}.`,
+        });
+      }
       router.push(`/cafes/${cafeId}`);
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Gagal Menambahkan Item",
+        title: `Gagal ${isEditMode ? "Memperbarui" : "Menambahkan"} Item`,
         description: "Terjadi kesalahan. Silakan coba lagi.",
       });
-      console.error("Failed to add menu item:", error);
+      console.error(`Failed to ${isEditMode ? "edit" : "add"} menu item:`, error);
     }
   }
 
   return (
     <Card className="w-full max-w-lg mx-auto shadow-xl">
       <CardHeader>
-        <CardTitle className="font-headline text-3xl text-primary">Tambah Item Menu</CardTitle>
-        <CardDescription>Untuk kafe: <span className="font-semibold">{cafeName}</span></CardDescription>
+        <div className="flex justify-between items-center">
+        <CardTitle className="font-headline text-3xl text-primary">{isEditMode ? "Edit Item Menu" : "Tambah Item Menu"}</CardTitle>
+          {!isEditMode && ( // Only show back button on add form if it's directly accessed (though usually through cafe menu)
+             <Button variant="outline" onClick={() => router.back()}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Kembali
+            </Button>
+          )}
+        </div>
+        <CardDescription>
+          {isEditMode ? `Untuk item: ${initialMenuItemData?.name || ''} di kafe: ` : "Untuk kafe: "}
+          <span className="font-semibold">{cafeName}</span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -140,7 +183,7 @@ export function MenuItemForm({ cafeId, cafeName }: MenuItemFormProps) {
             />
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
               <Save className="mr-2 h-4 w-4" />
-              {form.formState.isSubmitting ? "Menyimpan..." : "Simpan Item Menu"}
+              {form.formState.isSubmitting ? "Menyimpan..." : (isEditMode ? "Simpan Perubahan" : "Simpan Item Menu")}
             </Button>
           </form>
         </Form>
