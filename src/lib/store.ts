@@ -40,24 +40,48 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     try {
-      const storedCafes = localStorage.getItem(CAFE_STORAGE_KEY);
-      if (storedCafes) {
-        setCafes(JSON.parse(storedCafes));
+      const storedCafesRaw = localStorage.getItem(CAFE_STORAGE_KEY);
+      if (storedCafesRaw) {
+        const parsedCafes = JSON.parse(storedCafesRaw);
+        if (Array.isArray(parsedCafes)) {
+          setCafes(parsedCafes);
+        } else {
+          console.warn("Stored cafes data is not an array. Resetting to empty.");
+          setCafes([]);
+        }
       }
-      const storedMenuItems = localStorage.getItem(MENU_ITEM_STORAGE_KEY);
-      if (storedMenuItems) {
-        setMenuItems(JSON.parse(storedMenuItems));
+
+      const storedMenuItemsRaw = localStorage.getItem(MENU_ITEM_STORAGE_KEY);
+      if (storedMenuItemsRaw) {
+        const parsedMenuItems = JSON.parse(storedMenuItemsRaw);
+        if (Array.isArray(parsedMenuItems)) {
+          setMenuItems(parsedMenuItems);
+        } else {
+          console.warn("Stored menu items data is not an array. Resetting to empty.");
+          setMenuItems([]);
+        }
       }
-      const storedMenuCategories = localStorage.getItem(MENU_CATEGORIES_STORAGE_KEY);
-      if (storedMenuCategories) {
-        setMenuCategories(JSON.parse(storedMenuCategories));
+
+      const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_STORAGE_KEY);
+      if (storedMenuCategoriesRaw) {
+        const parsedMenuCategories = JSON.parse(storedMenuCategoriesRaw);
+        if (Array.isArray(parsedMenuCategories)) {
+          setMenuCategories(parsedMenuCategories);
+        } else {
+          // This handles cases where stored data is "undefined", null, or other non-array after parsing
+          console.warn("Stored menu categories data is not an array. Resetting to defaults.");
+          setMenuCategories(initialDefaultCategories);
+        }
       } else {
+        // No categories stored, use initial defaults
         setMenuCategories(initialDefaultCategories);
       }
     } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-       // Initialize with defaults if parsing fails or on first load
-      if (menuCategories.length === 0) setMenuCategories(initialDefaultCategories);
+      console.error("Error loading data from localStorage:", error);
+      // Fallback to defaults if any parsing or getItem fails
+      setCafes(prev => Array.isArray(prev) ? prev : []);
+      setMenuItems(prev => Array.isArray(prev) ? prev : []);
+      setMenuCategories(prev => Array.isArray(prev) && prev.length > 0 ? prev : initialDefaultCategories);
     }
     setIsInitialized(true);
   }, []);
@@ -146,16 +170,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteMenuCategory = (categoryName: string) => {
     setMenuCategories((prevCategories) => prevCategories.filter(cat => cat !== categoryName));
-    // Menu items using this category will retain the category string.
-    // They just won't be editable with this category in forms unless re-added.
   };
   
   if (!isInitialized) {
-    // Return a loading state or null to prevent premature rendering of consumers
     return null; 
   }
 
-  const providerValue = {
+  const providerValue: StoreContextType = {
     cafes,
     menuItems,
     menuCategories,
