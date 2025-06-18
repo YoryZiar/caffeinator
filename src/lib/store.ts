@@ -44,11 +44,12 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const CAFE_STORAGE_KEY = 'caffeinator_cafes_v6_image_volatile';
-const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v6_image_volatile';
-const MENU_CATEGORIES_BY_CAFE_STORAGE_KEY = 'caffeinator_menuCategoriesByCafe_v2';
-const USERS_STORAGE_KEY = 'caffeinator_users_v2';
-const CURRENT_USER_STORAGE_KEY = 'caffeinator_currentUser_v2';
+// Changed keys to reflect IndexedDB usage for images
+const CAFE_STORAGE_KEY = 'caffeinator_cafes_v7_metadata';
+const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v7_metadata';
+const MENU_CATEGORIES_BY_CAFE_STORAGE_KEY = 'caffeinator_menuCategoriesByCafe_v3'; // Incremented if structure changes
+const USERS_STORAGE_KEY = 'caffeinator_users_v3'; // Incremented if structure changes
+const CURRENT_USER_STORAGE_KEY = 'caffeinator_currentUser_v3'; // Incremented
 
 
 const initialDefaultCategories = [
@@ -70,6 +71,77 @@ const initialSuperAdminUser: User = {
   role: 'superadmin',
 };
 
+// IndexedDB Helper Functions
+const DB_NAME = "CaffeinatorImageDB";
+const IMAGE_STORE_NAME = "imageStore";
+
+function openImageDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onerror = () => reject("Error opening IndexedDB: " + request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(IMAGE_STORE_NAME)) {
+        db.createObjectStore(IMAGE_STORE_NAME, { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+async function saveImageToDB(id: string, dataUrl: string): Promise<void> {
+  if (!dataUrl || !dataUrl.startsWith('data:')) return; // Only save actual Data URIs
+  try {
+    const db = await openImageDB();
+    const transaction = db.transaction(IMAGE_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(IMAGE_STORE_NAME);
+    store.put({ id, dataUrl });
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject("Transaction error: " + transaction.error);
+    });
+  } catch (error) {
+    console.error(`Failed to save image ${id} to IndexedDB:`, error);
+  }
+}
+
+async function loadImageFromDB(id: string): Promise<string | undefined> {
+  try {
+    const db = await openImageDB();
+    const transaction = db.transaction(IMAGE_STORE_NAME, 'readonly');
+    const store = transaction.objectStore(IMAGE_STORE_NAME);
+    const request = store.get(id);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => {
+        resolve(request.result?.dataUrl);
+      };
+      request.onerror = () => {
+        console.error(`Error loading image ${id} from DB:`, request.error);
+        reject(request.error);
+      };
+    });
+  } catch (error) {
+    console.error(`Failed to load image ${id} from IndexedDB:`, error);
+    return undefined;
+  }
+}
+
+async function deleteImageFromDB(id: string): Promise<void> {
+  try {
+    const db = await openImageDB();
+    const transaction = db.transaction(IMAGE_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(IMAGE_STORE_NAME);
+    store.delete(id);
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject("Transaction error: " + transaction.error);
+    });
+  } catch (error) {
+    console.error(`Failed to delete image ${id} from IndexedDB:`, error);
+  }
+}
+
+
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [cafes, setCafes] = useState<Cafe[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -79,65 +151,69 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    try {
-      const storedCafesRaw = localStorage.getItem(CAFE_STORAGE_KEY);
-      // When loading, imageUrl might be missing if it was a Data URI.
-      // Components should handle undefined imageUrl by showing placeholders.
-      setCafes(storedCafesRaw ? JSON.parse(storedCafesRaw) : []);
+    const initializeData = async () => {
+      try {
+        const storedCafesRaw = localStorage.getItem(CAFE_STORAGE_KEY);
+        let loadedCafes: Cafe[] = storedCafesRaw ? JSON.parse(storedCafesRaw) : [];
+        for (let cafe of loadedCafes) {
+          const imageDataUrl = await loadImageFromDB(cafe.id);
+          if (imageDataUrl) cafe.imageUrl = imageDataUrl;
+        }
+        setCafes(loadedCafes);
 
-      const storedMenuItemsRaw = localStorage.getItem(MENU_ITEM_STORAGE_KEY);
-      setMenuItems(storedMenuItemsRaw ? JSON.parse(storedMenuItemsRaw) : []);
+        const storedMenuItemsRaw = localStorage.getItem(MENU_ITEM_STORAGE_KEY);
+        let loadedMenuItems: MenuItem[] = storedMenuItemsRaw ? JSON.parse(storedMenuItemsRaw) : [];
+        for (let item of loadedMenuItems) {
+          const imageDataUrl = await loadImageFromDB(item.id);
+          if (imageDataUrl) item.imageUrl = imageDataUrl;
+        }
+        setMenuItems(loadedMenuItems);
 
-      const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_BY_CAFE_STORAGE_KEY);
-      const parsedMenuCategories = storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : {};
-      setMenuCategoriesByCafe(parsedMenuCategories);
-      
-      const storedUsersRaw = localStorage.getItem(USERS_STORAGE_KEY);
-      const parsedUsers = storedUsersRaw ? JSON.parse(storedUsersRaw) : [];
-      if (!parsedUsers.find((u: User) => u.id === SUPERADMIN_ID)) {
-        setUsers([initialSuperAdminUser, ...parsedUsers.filter((u: User) => u.id !== SUPERADMIN_ID)]);
-      } else {
-        setUsers(parsedUsers);
+        const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_BY_CAFE_STORAGE_KEY);
+        setMenuCategoriesByCafe(storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : {});
+        
+        const storedUsersRaw = localStorage.getItem(USERS_STORAGE_KEY);
+        const parsedUsers = storedUsersRaw ? JSON.parse(storedUsersRaw) : [];
+        if (!parsedUsers.find((u: User) => u.id === SUPERADMIN_ID)) {
+          setUsers([initialSuperAdminUser, ...parsedUsers.filter((u: User) => u.id !== SUPERADMIN_ID)]);
+        } else {
+          setUsers(parsedUsers);
+        }
+
+        const storedCurrentUserRaw = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+        setCurrentUser(storedCurrentUserRaw ? JSON.parse(storedCurrentUserRaw) : null);
+
+      } catch (error) {
+        console.error("Error loading data from localStorage/IndexedDB:", error);
+        // Reset to empty/initial state on error
+        setCafes([]);
+        setMenuItems([]);
+        setMenuCategoriesByCafe({});
+        setUsers([initialSuperAdminUser]);
+        setCurrentUser(null);
       }
-
-      const storedCurrentUserRaw = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-      setCurrentUser(storedCurrentUserRaw ? JSON.parse(storedCurrentUserRaw) : null);
-
-    } catch (error) {
-      console.error("Error loading data from localStorage:", error);
-      setCafes([]);
-      setMenuItems([]);
-      setMenuCategoriesByCafe({});
-      setUsers([initialSuperAdminUser]);
-      setCurrentUser(null);
-    }
-    setIsInitialized(true);
+      setIsInitialized(true);
+    };
+    initializeData();
   }, []);
 
   useEffect(() => {
     if (isInitialized) {
       try {
-        // Prepare cafes for storage: remove Data URI images
-        const cafesToStore = cafes.map(cafe => {
+        // Prepare cafes for localStorage: remove Data URI images before saving metadata
+        const cafesMetadata = cafes.map(cafe => {
           const { imageUrl, ...restOfCafe } = cafe;
-          // Only keep imageUrl if it's NOT a Data URI
-          if (imageUrl && imageUrl.startsWith('data:')) {
-            return restOfCafe; 
-          }
-          // If it's an external URL (like placeholder) or undefined, keep as is (or with the external URL)
-          return { ...restOfCafe, imageUrl: imageUrl && !imageUrl.startsWith('data:') ? imageUrl : undefined };
+          // Store only external URLs or undefined in localStorage for imageUrl
+          return { ...restOfCafe, imageUrl: (imageUrl && !imageUrl.startsWith('data:')) ? imageUrl : undefined };
         });
-        localStorage.setItem(CAFE_STORAGE_KEY, JSON.stringify(cafesToStore));
+        localStorage.setItem(CAFE_STORAGE_KEY, JSON.stringify(cafesMetadata));
 
-        // Prepare menu items for storage: remove Data URI images
-        const menuItemsToStore = menuItems.map(item => {
+        // Prepare menu items for localStorage: remove Data URI images
+        const menuItemsMetadata = menuItems.map(item => {
           const { imageUrl, ...restOfItem } = item;
-          if (imageUrl && imageUrl.startsWith('data:')) {
-            return restOfItem;
-          }
-          return { ...restOfItem, imageUrl: imageUrl && !imageUrl.startsWith('data:') ? imageUrl : undefined };
+          return { ...restOfItem, imageUrl: (imageUrl && !imageUrl.startsWith('data:')) ? imageUrl : undefined };
         });
-        localStorage.setItem(MENU_ITEM_STORAGE_KEY, JSON.stringify(menuItemsToStore));
+        localStorage.setItem(MENU_ITEM_STORAGE_KEY, JSON.stringify(menuItemsMetadata));
         
         localStorage.setItem(MENU_CATEGORIES_BY_CAFE_STORAGE_KEY, JSON.stringify(menuCategoriesByCafe));
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
@@ -148,7 +224,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
         }
       } catch (error) {
-        console.error("Failed to save data to localStorage. Data URIs for images are not persisted to avoid quota issues:", error);
+        console.error("Failed to save metadata to localStorage:", error);
       }
     }
   }, [cafes, menuItems, menuCategoriesByCafe, users, currentUser, isInitialized]);
@@ -190,15 +266,19 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       name: cafeData.name,
       address: cafeData.address,
       contactInfo: cafeData.contactInfo,
-      imageUrl: cafeData.imageUrl, // This is the Data URI from upload, will be transient
+      imageUrl: cafeData.imageUrl, // This is the Data URI from upload, will be in React state
       id: newCafeId,
       ownerUserId: newAdminId,
     };
 
+    if (newCafe.imageUrl && newCafe.imageUrl.startsWith('data:')) {
+      saveImageToDB(newCafe.id, newCafe.imageUrl).catch(console.error);
+    }
+
     setUsers(prevUsers => [...prevUsers, newAdminUser]);
     setCafes(prevCafes => [...prevCafes, newCafe]);
     setMenuCategoriesByCafe(prev => ({ ...prev, [newCafeId]: [...initialDefaultCategories] }));
-    setCurrentUser(newAdminUser); // Auto-login after registration
+    setCurrentUser(newAdminUser); 
     return { success: true, newCafe, newUser: newAdminUser };
   };
   
@@ -223,10 +303,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       name: cafeData.name,
       address: cafeData.address,
       contactInfo: cafeData.contactInfo,
-      imageUrl: cafeData.imageUrl, // Transient Data URI
+      imageUrl: cafeData.imageUrl, 
       id: newCafeId,
       ownerUserId: newAdminId,
     };
+
+    if (newCafe.imageUrl && newCafe.imageUrl.startsWith('data:')) {
+      saveImageToDB(newCafe.id, newCafe.imageUrl).catch(console.error);
+    }
+
     setUsers(prev => [...prev, newAdminUser]);
     setCafes(prev => [...prev, newCafe]);
     setMenuCategoriesByCafe(prev => ({ ...prev, [newCafeId]: [...initialDefaultCategories] }));
@@ -243,18 +328,26 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     updatedCafeData: Partial<Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'>> & { imageUrl?: string },
     newAdminPassword?: string
   ) => {
+    let oldImageUrl: string | undefined;
     setCafes(prevCafes =>
       prevCafes.map(cafe => {
         if (cafe.id === cafeId) {
+          oldImageUrl = cafe.imageUrl;
           const newDetails: Cafe = {
             ...cafe,
             name: updatedCafeData.name ?? cafe.name,
             address: updatedCafeData.address ?? cafe.address,
             contactInfo: updatedCafeData.contactInfo ?? cafe.contactInfo,
-            // If imageUrl is provided in updatedCafeData, it's a new Data URI (transient)
-            // If not, we keep the existing imageUrl (which might be an external URL or undefined)
             imageUrl: typeof updatedCafeData.imageUrl !== 'undefined' ? updatedCafeData.imageUrl : cafe.imageUrl,
           };
+
+          if (newDetails.imageUrl && newDetails.imageUrl.startsWith('data:') && newDetails.imageUrl !== oldImageUrl) {
+            saveImageToDB(cafe.id, newDetails.imageUrl).catch(console.error);
+          } else if (typeof updatedCafeData.imageUrl !== 'undefined' && !newDetails.imageUrl && oldImageUrl?.startsWith('data:')) {
+            // Image was removed or changed to non-DataURI, delete from DB if it was a DataURI
+             deleteImageFromDB(cafe.id).catch(console.error);
+          }
+
 
           if (newAdminPassword && currentUser?.role === 'superadmin') {
              setUsers(prevUsers => prevUsers.map(u => {
@@ -277,16 +370,27 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const cafeToDelete = cafes.find(c => c.id === cafeId);
     if (!cafeToDelete) return;
 
+    // Delete cafe image from IndexedDB
+    if (cafeToDelete.imageUrl && cafeToDelete.imageUrl.startsWith('data:')) {
+      deleteImageFromDB(cafeToDelete.id).catch(console.error);
+    }
+    
+    // Delete images of menu items associated with this cafe
+    const itemsOfCafe = menuItems.filter(item => item.cafeId === cafeId);
+    itemsOfCafe.forEach(item => {
+      if (item.imageUrl && item.imageUrl.startsWith('data:')) {
+        deleteImageFromDB(item.id).catch(console.error);
+      }
+    });
+
     setCafes(prevCafes => prevCafes.filter(cafe => cafe.id !== cafeId));
     setMenuItems(prevMenuItems => prevMenuItems.filter(item => item.cafeId !== cafeId));
     setMenuCategoriesByCafe(prev => {
       const { [cafeId]: _, ...rest } = prev;
       return rest;
     });
-    // Also remove the cafe admin user associated with this cafe
     setUsers(prevUsers => prevUsers.filter(user => user.cafeId !== cafeId));
     
-    // If the currently logged-in user is the admin of the deleted cafe, log them out
     if (currentUser && currentUser.role === 'cafeadmin' && currentUser.cafeId === cafeId) {
         logout();
     }
@@ -299,8 +403,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       name: menuItemData.name,
       price: menuItemData.price,
       category: menuItemData.category,
-      imageUrl: menuItemData.imageUrl, // Transient Data URI
+      imageUrl: menuItemData.imageUrl, 
     };
+    if (newMenuItem.imageUrl && newMenuItem.imageUrl.startsWith('data:')) {
+      saveImageToDB(newMenuItem.id, newMenuItem.imageUrl).catch(console.error);
+    }
     setMenuItems((prevMenuItems) => [...prevMenuItems, newMenuItem]);
     return newMenuItem;
   };
@@ -310,21 +417,36 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editMenuItem = (menuItemId: string, updatedMenuItemData: Omit<MenuItem, 'id' | 'cafeId' | 'imageUrl'> & { imageUrl?: string }) => {
+    let oldImageUrl: string | undefined;
     setMenuItems(prevItems =>
-      prevItems.map(item =>
-        item.id === menuItemId ? { 
-          ...item, 
-          name: updatedMenuItemData.name ?? item.name,
-          price: updatedMenuItemData.price ?? item.price,
-          category: updatedMenuItemData.category ?? item.category,
-          imageUrl: typeof updatedMenuItemData.imageUrl !== 'undefined' ? updatedMenuItemData.imageUrl : item.imageUrl, // New transient Data URI or keep old
-        } : item
-      )
+      prevItems.map(item => {
+        if (item.id === menuItemId) {
+          oldImageUrl = item.imageUrl;
+          const newDetails = { 
+            ...item, 
+            name: updatedMenuItemData.name ?? item.name,
+            price: updatedMenuItemData.price ?? item.price,
+            category: updatedMenuItemData.category ?? item.category,
+            imageUrl: typeof updatedMenuItemData.imageUrl !== 'undefined' ? updatedMenuItemData.imageUrl : item.imageUrl,
+          };
+          if (newDetails.imageUrl && newDetails.imageUrl.startsWith('data:') && newDetails.imageUrl !== oldImageUrl) {
+             saveImageToDB(item.id, newDetails.imageUrl).catch(console.error);
+          } else if (typeof updatedMenuItemData.imageUrl !== 'undefined' && !newDetails.imageUrl && oldImageUrl?.startsWith('data:')) {
+             deleteImageFromDB(item.id).catch(console.error);
+          }
+          return newDetails;
+        }
+        return item;
+      })
     );
     return true;
   };
 
   const deleteMenuItem = (menuItemId: string) => {
+    const itemToDelete = menuItems.find(item => item.id === menuItemId);
+    if (itemToDelete && itemToDelete.imageUrl && itemToDelete.imageUrl.startsWith('data:')) {
+      deleteImageFromDB(itemToDelete.id).catch(console.error);
+    }
     setMenuItems(prevItems => prevItems.filter(item => item.id !== menuItemId));
   };
 
@@ -339,7 +461,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const addMenuCategoryForCafe = (cafeId: string, categoryName: string) => {
     const currentCategories = menuCategoriesByCafe[cafeId] || [];
     if (currentCategories.includes(categoryName)) {
-      return false; // Category already exists
+      return false; 
     }
     const newCategories = [...currentCategories, categoryName].sort();
     setMenuCategoriesByCafe(prev => ({ ...prev, [cafeId]: newCategories }));
@@ -348,17 +470,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const editMenuCategoryForCafe = (cafeId: string, oldName: string, newName: string) => {
     const currentCategories = menuCategoriesByCafe[cafeId] || [];
-    if (oldName === newName) return true; // No change needed
-    if (currentCategories.includes(newName)) return false; // New name already exists
+    if (oldName === newName) return true; 
+    if (currentCategories.includes(newName)) return false; 
     
     const oldNameIndex = currentCategories.indexOf(oldName);
-    if (oldNameIndex === -1) return false; // Old name not found
+    if (oldNameIndex === -1) return false;
 
     const updatedCategoriesList = [...currentCategories];
     updatedCategoriesList[oldNameIndex] = newName;
     
     setMenuCategoriesByCafe(prev => ({ ...prev, [cafeId]: updatedCategoriesList.sort() }));
-    // Update category name in all menu items of this cafe
     setMenuItems(prevItems =>
       prevItems.map(item =>
         item.cafeId === cafeId && item.category === oldName ? { ...item, category: newName } : item
@@ -371,9 +492,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const currentCategories = menuCategoriesByCafe[cafeId] || [];
     const newCategories = currentCategories.filter(cat => cat !== categoryName);
     setMenuCategoriesByCafe(prev => ({ ...prev, [cafeId]: newCategories }));
-    // Note: Menu items using this category will still exist but might show the old category name
-    // or you might want to handle this differently (e.g., assign a default category).
-    // For simplicity, we'll leave them as is. Re-editing the item would allow category change.
   };
 
   const getTotalMenuItemCount = () => menuItems.length;
