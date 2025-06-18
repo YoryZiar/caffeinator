@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Cafe } from '@/lib/types';
@@ -16,8 +17,8 @@ interface CafeCardProps {
 
 export function CafeCard({ cafe }: CafeCardProps) {
   const imageSrc = cafe.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(cafe.name)}`;
-  const imageAlt = cafe.imageUrl ? `Gambar untuk ${cafe.name}` : `Placeholder untuk ${cafe.name}`;
-  const aiHint = cafe.imageUrl ? "cafe interior" : "cafe restaurant";
+  // For Data URIs or placeholders, ai-hint might not be as relevant or needs dynamic generation
+  const imageAlt = `Gambar untuk ${cafe.name}`;
   
   const { deleteCafe, currentUser, isInitialized } = useStore();
   const { toast } = useToast();
@@ -51,7 +52,7 @@ export function CafeCard({ cafe }: CafeCardProps) {
           layout="fill"
           objectFit="cover"
           className="transition-transform duration-300 group-hover:scale-105"
-          data-ai-hint={aiHint}
+          data-ai-hint={cafe.imageUrl && !cafe.imageUrl.startsWith('data:') ? "cafe exterior" : "cafe image"}
         />
       </div>
       <CardHeader>
@@ -90,7 +91,7 @@ export function CafeCard({ cafe }: CafeCardProps) {
                 </Link>
               </Button>
             )}
-            {(isSuperAdmin || isCafeOwner) && ( // Cafe owner can delete their own cafe too
+            {(isSuperAdmin || (isCafeOwner && currentUser?.cafeId === cafe.id)) && ( // Cafe owner can delete their own cafe, superadmin can delete any
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="w-full">

@@ -12,7 +12,7 @@ export interface Cafe {
   name: string;
   address: string;
   contactInfo: string;
-  imageUrl?: string;
+  imageUrl?: string; // Can be a Data URI or external URL (like placeholder)
   ownerUserId: string; // Links to the User who owns/administers this cafe
 }
 
@@ -20,7 +20,7 @@ export interface MenuItem {
   id: string;
   cafeId: string; // Ensures menu item is tied to a specific cafe
   name: string;
-  imageUrl: string;
+  imageUrl?: string; // Can be a Data URI or external URL (like placeholder)
   price: number;
   category: string;
 }

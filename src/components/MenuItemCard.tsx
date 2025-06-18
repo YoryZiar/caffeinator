@@ -35,17 +35,19 @@ export function MenuItemCard({ menuItem }: MenuItemCardProps) {
       console.error("Failed to delete menu item:", error);
     }
   };
+  
+  const imageSrc = menuItem.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(menuItem.name)}`;
 
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out group">
       <div className="relative w-full h-40">
         <Image
-          src={menuItem.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(menuItem.name)}`}
+          src={imageSrc}
           alt={menuItem.name}
           layout="fill"
           objectFit="cover"
           className="transition-transform duration-300 group-hover:scale-110"
-          data-ai-hint="food dish"
+          data-ai-hint={menuItem.imageUrl && !menuItem.imageUrl.startsWith('data:') ? "food dish" : "menu item image"}
         />
       </div>
       <CardHeader className="pb-2">

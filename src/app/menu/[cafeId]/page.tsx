@@ -2,27 +2,30 @@
 "use client";
 
 import { useStore } from '@/lib/store';
-import type { MenuItem as MenuItemType } from '@/lib/types';
-import { MenuItemCard } from '@/components/MenuItemCard'; // Public page should not show edit/delete from here
+import type { Cafe as CafeType, MenuItem as MenuItemType } from '@/lib/types';
+// MenuItemCard for public page should not show edit/delete, so we create a simplified one
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, UtensilsCrossed, Coffee } from 'lucide-react';
+import { ArrowLeft, UtensilsCrossed, Coffee, Tag, DollarSign } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 
 // Simplified MenuItemCard for public view (no edit/delete)
 function PublicMenuItemCard({ menuItem }: { menuItem: MenuItemType }) {
+  const imageSrc = menuItem.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(menuItem.name)}`;
   return (
     <Card className="overflow-hidden shadow-lg group">
       <div className="relative w-full h-40">
         <Image
-          src={menuItem.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(menuItem.name)}`}
+          src={imageSrc}
           alt={menuItem.name}
           layout="fill"
           objectFit="cover"
           className="transition-transform duration-300 group-hover:scale-105"
-          data-ai-hint="food dish"
+          data-ai-hint={menuItem.imageUrl && !menuItem.imageUrl.startsWith('data:') ? "food dish" : "menu item image"}
         />
       </div>
       <CardHeader className="pb-2">
@@ -41,41 +44,42 @@ function PublicMenuItemCard({ menuItem }: { menuItem: MenuItemType }) {
   );
 }
 
-// Re-importing Card components as they are used by PublicMenuItemCard
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tag, DollarSign } from 'lucide-react'; // For PublicMenuItemCard
 
 export default function PublicCafeMenuPage() {
   const params = useParams();
   const cafeId = typeof params.cafeId === 'string' ? params.cafeId : '';
   
-  const { getCafeById, getMenuItemsByCafeId } = useStore();
+  const { getCafeById, getMenuItemsByCafeId, isInitialized } = useStore(); // Added isInitialized
   const router = useRouter();
 
-  const [cafe, setCafe] = useState<ReturnType<typeof getCafeById>>(undefined);
+  const [cafe, setCafe] = useState<CafeType | null | undefined>(undefined); // Allow null for not found
   const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (cafeId) {
+    // Wait for store to be initialized before fetching data
+    if (isInitialized && cafeId) {
       const foundCafe = getCafeById(cafeId);
       if (foundCafe) {
         setCafe(foundCafe);
         setMenuItems(getMenuItemsByCafeId(cafeId));
       } else {
-        // Cafe not found, redirect or show error
-        // For a public page, showing a "not found" might be better than redirecting to home
+        setCafe(null); // Explicitly set to null if not found
       }
       setIsLoading(false);
+    } else if (isInitialized && !cafeId) {
+      // Handle case where cafeId is missing, maybe redirect or show error
+      setIsLoading(false);
+      setCafe(null);
     }
-  }, [cafeId, getCafeById, getMenuItemsByCafeId]);
+  }, [cafeId, getCafeById, getMenuItemsByCafeId, isInitialized]);
 
 
-  if (isLoading) {
+  if (!isInitialized || isLoading) { // Check isInitialized here
     return <div className="text-center py-10">Memuat menu kafe...</div>;
   }
 
-  if (!cafe) {
+  if (cafe === null) { // Check for null (not found) state
     return (
       <div className="text-center py-10">
         <UtensilsCrossed className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -90,6 +94,12 @@ export default function PublicCafeMenuPage() {
       </div>
     );
   }
+  
+  // This case should be covered by isLoading or cafe === null
+  if (!cafe) { 
+      return <div className="text-center py-10">Memuat data kafe...</div>
+  }
+
 
   const groupedMenuItems = menuItems.reduce((acc, item) => {
     (acc[item.category] = acc[item.category] || []).push(item);
@@ -107,7 +117,7 @@ export default function PublicCafeMenuPage() {
           alt={`Gambar untuk ${cafe.name}`}
           layout="fill"
           objectFit="cover"
-          data-ai-hint="cafe exterior building"
+          data-ai-hint={cafe.imageUrl && !cafe.imageUrl.startsWith('data:') ? "cafe exterior building" : "generic cafe image"}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8">
           <h1 className="text-5xl font-headline font-bold text-white shadow-md">{cafe.name}</h1>
@@ -138,7 +148,6 @@ export default function PublicCafeMenuPage() {
             <h2 className="text-3xl font-headline text-accent border-b-2 border-accent/30 pb-2">{category}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {items.map((item) => (
-                // Use a simplified card for public view if needed, or MenuItemCard will show edit/delete which redirect to login
                 <PublicMenuItemCard key={item.id} menuItem={item} />
               ))}
             </div>

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,13 +13,24 @@ import { useStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { Cafe } from '@/lib/types';
-import { Building, MapPin, Phone, Save, Image as ImageIcon, ArrowLeft, Mail, KeyRound } from 'lucide-react';
+import { Building, MapPin, Phone, Save, Image as ImageIconLucide, ArrowLeft, Mail, KeyRound } from 'lucide-react';
+import Image from 'next/image'; // For image preview
+
+// Helper function to convert File to Data URI
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 const cafeFormSchemaBase = z.object({
   name: z.string().min(2, { message: "Nama kafe minimal 2 karakter." }).max(50, { message: "Nama kafe maksimal 50 karakter." }),
   address: z.string().min(5, { message: "Alamat minimal 5 karakter." }).max(100, { message: "Alamat maksimal 100 karakter." }),
   contactInfo: z.string().min(5, { message: "Info kontak minimal 5 karakter (e.g., nomor telepon)." }).max(50, { message: "Info kontak maksimal 50 karakter." }),
-  imageUrl: z.string().url({ message: "URL gambar tidak valid." }).optional().or(z.literal('')),
+  imageUrl: z.string().optional().or(z.literal('')), // Will store Data URI string or be empty
 });
 
 const superAdminAddCafeSchema = cafeFormSchemaBase.extend({
@@ -26,22 +38,21 @@ const superAdminAddCafeSchema = cafeFormSchemaBase.extend({
   adminPassword: z.string().min(6, "Password admin minimal 6 karakter."),
 });
 
-const editCafeSchema = cafeFormSchemaBase.extend({
-  // For editing, admin email/password changes are handled differently or not at all via this form for cafe owner.
-  // Superadmin might have a more complex edit flow if they can change ownership.
-});
+const editCafeSchema = cafeFormSchemaBase;
 
 
 interface CafeFormProps {
   isEditMode?: boolean;
   initialCafeData?: Cafe;
-  isSuperAdminAddMode?: boolean; // New prop for superadmin adding a cafe + admin
+  isSuperAdminAddMode?: boolean;
 }
 
 export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddMode = false }: CafeFormProps) {
   const { addCafeBySuperAdmin, editCafe, currentUser } = useStore();
   const router = useRouter();
   const { toast } = useToast();
+  const [imagePreview, setImagePreview] = useState<string | null>(initialCafeData?.imageUrl || null);
+
 
   const currentFormSchema = isSuperAdminAddMode ? superAdminAddCafeSchema : editCafeSchema;
 
@@ -52,14 +63,12 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
       address: initialCafeData.address,
       contactInfo: initialCafeData.contactInfo,
       imageUrl: initialCafeData.imageUrl || '',
-      // adminEmail and adminPassword fields only for superAdminAddMode, not prefilled for edit mode here
     } : {
       name: '',
       address: '',
       contactInfo: '',
       imageUrl: '',
-      adminEmail: '', // only relevant for superAdminAddMode
-      adminPassword: '', // only relevant for superAdminAddMode
+      ...(isSuperAdminAddMode && { adminEmail: '', adminPassword: '' }),
     },
   });
 
@@ -71,25 +80,41 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
         contactInfo: initialCafeData.contactInfo,
         imageUrl: initialCafeData.imageUrl || '',
       });
+      setImagePreview(initialCafeData.imageUrl || null);
     } else if (!isEditMode && !isSuperAdminAddMode) {
-        // This case should not happen if add-cafe page is removed for self-registration
-        // Or if CafeForm is only used by superadmin add or edit modes.
+      form.reset({
+        name: '',
+        address: '',
+        contactInfo: '',
+        imageUrl: '',
+      });
+      setImagePreview(null);
+    } else if (isSuperAdminAddMode) {
+       form.reset({
+        name: '',
+        address: '',
+        contactInfo: '',
+        imageUrl: '',
+        adminEmail: '',
+        adminPassword: '',
+      });
+      setImagePreview(null);
     }
   }, [isEditMode, initialCafeData, form, isSuperAdminAddMode]);
 
-  function onSubmit(data: z.infer<typeof currentFormSchema>) {
+  async function onSubmit(data: z.infer<typeof currentFormSchema>) {
     try {
+      // The `data.imageUrl` is already a Data URI string from the form state,
+      // or empty if no image was set/uploaded.
+      const finalImageUrl = data.imageUrl || (isSuperAdminAddMode || !isEditMode ? `https://placehold.co/600x400.png?text=${encodeURIComponent(data.name)}` : initialCafeData?.imageUrl || '');
+      
       if (isEditMode && initialCafeData) {
-        // Cafe owner edits their own cafe details, or superadmin edits any cafe's details
-        // Password change for cafe owner is not handled here, only cafe details.
-        const cafeDetailsToUpdate: Partial<Omit<Cafe, 'id' | 'ownerUserId'>> = {
+        const cafeDetailsToUpdate = {
             name: data.name,
             address: data.address,
             contactInfo: data.contactInfo,
-            imageUrl: data.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(data.name)}`
+            imageUrl: finalImageUrl,
         };
-        // Superadmin might change adminEmail/password. This is complex and store logic for editCafe needs to handle it.
-        // For now, editCafe primarily updates cafe details.
         editCafe(initialCafeData.id, cafeDetailsToUpdate);
         toast({
           title: "Kafe Diperbarui!",
@@ -97,13 +122,12 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
         });
         router.push(currentUser?.role === 'cafeadmin' ? '/dashboard' : '/');
       } else if (isSuperAdminAddMode) {
-        // Superadmin adds a new cafe and creates an admin account for it
         const typedData = data as z.infer<typeof superAdminAddCafeSchema>;
         const cafeToAdd = {
             name: typedData.name,
             address: typedData.address,
             contactInfo: typedData.contactInfo,
-            imageUrl: typedData.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(typedData.name)}`
+            imageUrl: finalImageUrl,
         };
         const result = addCafeBySuperAdmin(cafeToAdd, typedData.adminEmail, typedData.adminPassword);
         if (result.success) {
@@ -116,8 +140,6 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
             toast({ variant: "destructive", title: "Gagal Menambahkan", description: result.message || "Terjadi Kesalahan." });
         }
       } else {
-        // This case would be for a general "addCafe" which is now handled by registration or superadmin specific add.
-        // Should not be reached if UI flow is correct.
         console.error("CafeForm: Reached unexpected onSubmit case.");
         toast({ variant: "destructive", title: "Aksi Tidak Valid", description: "Operasi tidak didukung." });
       }
@@ -130,6 +152,27 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
       console.error(`Failed operation:`, error);
     }
   }
+
+  const handleImageFileChange = async (event: React.ChangeEvent<HTMLInputElement>, fieldOnChange: (value: string) => void) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const dataUri = await fileToDataUri(file);
+        fieldOnChange(dataUri); // Update RHF form state
+        setImagePreview(dataUri);
+      } catch (error) {
+        console.error("Error converting file to Data URI:", error);
+        toast({ variant: "destructive", title: "Gagal Memproses Gambar", description: "Tidak dapat memuat pratinjau gambar." });
+        fieldOnChange(initialCafeData?.imageUrl || ''); // Revert to initial or empty
+        setImagePreview(initialCafeData?.imageUrl || null);
+      }
+    } else {
+      // If user cancels file dialog, do we clear the image?
+      // For now, let's say if they want to remove image, they'd need a "remove" button.
+      // Or, they can upload a transparent pixel.
+      // If no file is selected, the current RHF value for imageUrl remains.
+    }
+  };
   
   const title = isSuperAdminAddMode ? "Tambah Kafe & Admin Baru (Superadmin)" : (isEditMode ? "Edit Detail Kafe" : "Form Kafe");
   const description = isSuperAdminAddMode ? "Isi detail kafe dan kredensial admin untuk kafe ini." : (isEditMode ? `Perbarui detail untuk kafe ${initialCafeData?.name || ''}.` : "Isi detail kafe.");
@@ -139,7 +182,7 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
       <CardHeader>
         <div className="flex justify-between items-center">
          <CardTitle className="font-headline text-3xl text-primary">{title}</CardTitle>
-          {(isEditMode || isSuperAdminAddMode) && ( // Show back button for these modes
+          {(isEditMode || isSuperAdminAddMode) && (
             <Button variant="outline" onClick={() => router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Kembali
@@ -192,14 +235,25 @@ export function CafeForm({ isEditMode = false, initialCafeData, isSuperAdminAddM
             />
             <FormField
               control={form.control}
-              name="imageUrl"
+              name="imageUrl" // This RHF field stores the Data URI string
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-primary" />URL Gambar Kafe (Opsional)</FormLabel>
+                  <FormLabel className="flex items-center"><ImageIconLucide className="mr-2 h-4 w-4 text-primary" />Gambar Kafe (Opsional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://contoh.com/gambar-kafe.jpg" {...field} />
+                    <Input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => handleImageFileChange(e, field.onChange)}
+                      className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                    />
                   </FormControl>
                   <FormMessage />
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <p className="text-sm text-muted-foreground">Pratinjau:</p>
+                      <Image src={imagePreview} alt="Pratinjau gambar kafe" width={150} height={150} className="rounded-md object-cover border" data-ai-hint="cafe photo" />
+                    </div>
+                  )}
                 </FormItem>
               )}
             />

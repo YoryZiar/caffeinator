@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -13,11 +14,22 @@ import { useStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { MenuItem } from '@/lib/types';
-import { Utensils, Image as ImageIcon, DollarSign, ListChecks, Save, ArrowLeft } from 'lucide-react';
+import { Utensils, Image as ImageIconLucide, DollarSign, ListChecks, Save } from 'lucide-react';
+import Image from 'next/image'; // For image preview
+
+// Helper function to convert File to Data URI
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 const menuItemFormSchema = z.object({
   name: z.string().min(2, { message: "Nama menu minimal 2 karakter." }).max(50, { message: "Nama menu maksimal 50 karakter." }),
-  imageUrl: z.string().url({ message: "URL gambar tidak valid." }).optional().or(z.literal('')),
+  imageUrl: z.string().optional().or(z.literal('')), // Will store Data URI string or be empty
   price: z.coerce.number().min(0, { message: "Harga tidak boleh negatif." }),
   category: z.string().min(1, { message: "Kategori harus dipilih."}),
 });
@@ -35,6 +47,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
   const { addMenuItem, editMenuItem, getMenuCategoriesForCafe } = useStore();
   const router = useRouter();
   const { toast } = useToast();
+  const [imagePreview, setImagePreview] = useState<string | null>(initialMenuItemData?.imageUrl || null);
 
   const menuCategories = getMenuCategoriesForCafe(cafeId);
 
@@ -49,7 +62,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
       name: '',
       imageUrl: '',
       price: 0,
-      category: menuCategories.length > 0 ? menuCategories[0] : undefined, // Default to first category if available
+      category: menuCategories.length > 0 ? menuCategories[0] : undefined,
     },
   });
 
@@ -61,23 +74,28 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
         price: initialMenuItemData.price,
         category: initialMenuItemData.category,
       });
+      setImagePreview(initialMenuItemData.imageUrl || null);
     } else if (!isEditMode) {
-      // For new items, if categories change, we might want to update default or clear selection
-      // This simple reset won't do that, but is okay for now.
       form.reset({
         name: '',
         imageUrl: '',
         price: 0,
         category: menuCategories.length > 0 ? menuCategories[0] : undefined,
       });
+      setImagePreview(null);
     }
-  }, [isEditMode, initialMenuItemData, form, menuCategories]); // Added menuCategories to dependency
+  }, [isEditMode, initialMenuItemData, form, menuCategories]);
 
-  function onSubmit(data: MenuItemFormValues) {
+  async function onSubmit(data: MenuItemFormValues) {
     try {
+      // data.imageUrl is already a Data URI string or empty
+      const finalImageUrl = data.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(data.name)}`;
+      
       const fullMenuItemData = { 
-        ...data, 
-        imageUrl: data.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(data.name)}`
+        name: data.name,
+        price: data.price,
+        category: data.category,
+        imageUrl: finalImageUrl,
       };
 
       if (isEditMode && initialMenuItemData) {
@@ -93,7 +111,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
           description: `${data.name} berhasil ditambahkan ke menu ${cafeName}.`,
         });
       }
-      router.push(`/cafes/${cafeId}`); // Back to menu management for this cafe
+      router.push(`/cafes/${cafeId}`);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -104,12 +122,30 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
     }
   }
 
+  const handleImageFileChange = async (event: React.ChangeEvent<HTMLInputElement>, fieldOnChange: (value: string) => void) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const dataUri = await fileToDataUri(file);
+        fieldOnChange(dataUri); // Update RHF form state
+        setImagePreview(dataUri);
+      } catch (error) {
+        console.error("Error converting file to Data URI:", error);
+        toast({ variant: "destructive", title: "Gagal Memproses Gambar", description: "Tidak dapat memuat pratinjau gambar." });
+        fieldOnChange(initialMenuItemData?.imageUrl || ''); // Revert to initial or empty
+        setImagePreview(initialMenuItemData?.imageUrl || null);
+      }
+    } else {
+      // fieldOnChange(initialMenuItemData?.imageUrl || ''); // Optional: revert if selection cancelled
+      // setImagePreview(initialMenuItemData?.imageUrl || null);
+    }
+  };
+
   return (
     <Card className="w-full max-w-lg mx-auto shadow-xl">
       <CardHeader>
         <div className="flex justify-between items-center">
         <CardTitle className="font-headline text-3xl text-primary">{isEditMode ? "Edit Item Menu" : "Tambah Item Menu"}</CardTitle>
-          {/* Back button logic handled by page containing this form */}
         </div>
         <CardDescription>
           {isEditMode ? `Untuk item: ${initialMenuItemData?.name || ''} di kafe: ` : "Untuk kafe: "}
@@ -134,14 +170,25 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
             />
             <FormField
               control={form.control}
-              name="imageUrl"
+              name="imageUrl" // RHF field stores Data URI string
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-primary" />URL Gambar (Opsional)</FormLabel>
+                  <FormLabel className="flex items-center"><ImageIconLucide className="mr-2 h-4 w-4 text-primary" />Gambar Menu (Opsional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://contoh.com/gambar.jpg" {...field} />
+                     <Input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => handleImageFileChange(e, field.onChange)}
+                      className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                    />
                   </FormControl>
                   <FormMessage />
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <p className="text-sm text-muted-foreground">Pratinjau:</p>
+                      <Image src={imagePreview} alt="Pratinjau gambar menu" width={150} height={150} className="rounded-md object-cover border" data-ai-hint="food item" />
+                    </div>
+                  )}
                 </FormItem>
               )}
             />
@@ -186,7 +233,7 @@ export function MenuItemForm({ cafeId, cafeName, isEditMode = false, initialMenu
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || menuCategories.length === 0}>
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || (menuCategories.length === 0 && !form.getValues("category"))}>
               <Save className="mr-2 h-4 w-4" />
               {form.formState.isSubmitting ? "Menyimpan..." : (isEditMode ? "Simpan Perubahan" : "Simpan Item Menu")}
             </Button>

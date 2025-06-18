@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -13,22 +14,33 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Building, MapPin, Phone, Image as ImageIcon, Mail, KeyRound, UserPlus, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image'; // For image preview
 
 const registerCafeFormSchema = z.object({
   cafeName: z.string().min(2, "Nama kafe minimal 2 karakter.").max(50),
   cafeAddress: z.string().min(5, "Alamat kafe minimal 5 karakter.").max(100),
   cafeContact: z.string().min(5, "Info kontak kafe minimal 5 karakter.").max(50),
-  cafeImageUrl: z.string().url("URL gambar tidak valid.").optional().or(z.literal('')),
+  cafeImageUrl: z.string().optional().or(z.literal('')), // Will store Data URI or be empty
   adminEmail: z.string().email("Format email tidak valid."),
   adminPassword: z.string().min(6, "Password minimal 6 karakter."),
 });
 
 type RegisterCafeFormValues = z.infer<typeof registerCafeFormSchema>;
 
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function RegisterCafePage() {
   const { registerCafeAndAdmin, currentUser } = useStore();
   const router = useRouter();
   const { toast } = useToast();
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const form = useForm<RegisterCafeFormValues>({
     resolver: zodResolver(registerCafeFormSchema),
@@ -47,7 +59,9 @@ export default function RegisterCafePage() {
     return <div className="text-center py-10">Anda sudah login. Mengarahkan...</div>;
   }
 
-  function onSubmit(data: RegisterCafeFormValues) {
+  async function onSubmit(data: RegisterCafeFormValues) {
+    // The cafeImageUrl from form 'data' is already the Data URI string if a file was selected and processed,
+    // or empty string if not.
     const cafeData = {
       name: data.cafeName,
       address: data.cafeAddress,
@@ -66,7 +80,7 @@ export default function RegisterCafePage() {
         title: "Pendaftaran Berhasil!",
         description: `Kafe "${data.cafeName}" dan akun admin Anda telah dibuat.`,
       });
-      router.push('/dashboard'); // Redirect to dashboard after successful registration
+      router.push('/dashboard');
     } else {
       toast({
         variant: "destructive",
@@ -75,6 +89,25 @@ export default function RegisterCafePage() {
       });
     }
   }
+
+  const handleImageFileChange = async (event: React.ChangeEvent<HTMLInputElement>, fieldOnChange: (value: string) => void) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const dataUri = await fileToDataUri(file);
+        fieldOnChange(dataUri); // Update RHF form state for cafeImageUrl
+        setImagePreview(dataUri);
+      } catch (error) {
+        console.error("Error converting file to Data URI:", error);
+        toast({ variant: "destructive", title: "Gagal Memproses Gambar", description: "Tidak dapat memuat pratinjau gambar." });
+        fieldOnChange(''); // Clear if error
+        setImagePreview(null);
+      }
+    } else {
+      fieldOnChange(''); // Clear if no file selected
+      setImagePreview(null);
+    }
+  };
 
   return (
     <div className="flex justify-center items-center py-8">
@@ -125,11 +158,24 @@ export default function RegisterCafePage() {
               <FormField
                 control={form.control}
                 name="cafeImageUrl"
-                render={({ field }) => (
+                render={({ field }) => ( // field.onChange will be used to set the Data URI string
                   <FormItem>
-                    <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-primary" />URL Gambar Kafe (Opsional)</FormLabel>
-                    <FormControl><Input placeholder="https://example.com/cafe.jpg" {...field} /></FormControl>
+                    <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-primary" />Gambar Kafe (Opsional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleImageFileChange(e, field.onChange)}
+                        className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      />
+                    </FormControl>
                     <FormMessage />
+                    {imagePreview && (
+                      <div className="mt-2">
+                        <p className="text-sm text-muted-foreground">Pratinjau:</p>
+                        <Image src={imagePreview} alt="Pratinjau gambar kafe" width={150} height={150} className="rounded-md object-cover border" data-ai-hint="cafe interior image" />
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />

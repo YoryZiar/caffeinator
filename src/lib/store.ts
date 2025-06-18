@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Cafe, MenuItem, User } from '@/lib/types';
@@ -8,33 +9,44 @@ interface StoreContextType {
   cafes: Cafe[];
   menuItems: MenuItem[];
   menuCategoriesByCafe: Record<string, string[]>; // cafeId -> string[]
+  users: User[]; // Expose users for superadmin to potentially see (though not explicitly requested yet)
   currentUser: User | null;
   isInitialized: boolean;
   login: (email: string, password: string) => boolean;
   logout: () => void;
   registerCafeAndAdmin: (
-    cafeData: Omit<Cafe, 'id' | 'ownerUserId'>,
+    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string }, // imageUrl is now string (Data URI or placeholder)
     adminData: Omit<User, 'id' | 'role' | 'cafeId'>
   ) => { success: boolean; message?: string; newCafe?: Cafe, newUser?: User };
-  addCafeBySuperAdmin: (cafeData: Omit<Cafe, 'id' | 'ownerUserId'>, adminEmail: string, adminPassword: string) => { success: boolean; message?: string; newCafe?: Cafe, newUser?: User };
+  addCafeBySuperAdmin: (
+    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string }, // imageUrl is now string
+    adminEmail: string, adminPassword: string
+  ) => { success: boolean; message?: string; newCafe?: Cafe, newUser?: User };
   getCafeById: (cafeId: string) => Cafe | undefined;
-  editCafe: (cafeId: string, updatedCafeData: Partial<Omit<Cafe, 'id' | 'ownerUserId'>>, newAdminPassword?: string) => boolean;
+  editCafe: (
+    cafeId: string,
+    updatedCafeData: Partial<Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'>> & { imageUrl?: string }, // imageUrl is now string
+    newAdminPassword?: string
+  ) => boolean;
   deleteCafe: (cafeId: string) => void;
-  addMenuItem: (menuItem: Omit<MenuItem, 'id'>) => MenuItem;
+  addMenuItem: (menuItem: Omit<MenuItem, 'id' | 'imageUrl'> & { imageUrl?: string }) => MenuItem;
   getMenuItemById: (menuItemId: string) => MenuItem | undefined;
-  editMenuItem: (menuItemId: string, updatedMenuItemData: Omit<MenuItem, 'id' | 'cafeId'>) => boolean;
+  editMenuItem: (menuItemId: string, updatedMenuItemData: Omit<MenuItem, 'id' | 'cafeId' | 'imageUrl'> & { imageUrl?: string }) => boolean;
   deleteMenuItem: (menuItemId: string) => void;
   getMenuItemsByCafeId: (cafeId: string) => MenuItem[];
   getMenuCategoriesForCafe: (cafeId: string) => string[];
   addMenuCategoryForCafe: (cafeId: string, categoryName: string) => boolean;
   editMenuCategoryForCafe: (cafeId: string, oldName: string, newName: string) => boolean;
   deleteMenuCategoryForCafe: (cafeId: string, categoryName: string) => void;
+  // New functions for superadmin dashboard
+  getTotalMenuItemCount: () => number;
+  getTotalUniqueCategoryCount: () => number;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const CAFE_STORAGE_KEY = 'caffeinator_cafes_v2';
-const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v2';
+const CAFE_STORAGE_KEY = 'caffeinator_cafes_v3'; // Incremented version due to imageUrl change
+const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v3'; // Incremented version
 const MENU_CATEGORIES_BY_CAFE_STORAGE_KEY = 'caffeinator_menuCategoriesByCafe_v2';
 const USERS_STORAGE_KEY = 'caffeinator_users_v2';
 const CURRENT_USER_STORAGE_KEY = 'caffeinator_currentUser_v2';
@@ -47,7 +59,6 @@ const initialDefaultCategories = [
   "Pencuci Mulut",
 ];
 
-// Hardcoded superadmin
 const SUPERADMIN_ID = "superadmin-001";
 const SUPERADMIN_EMAIL = "superadmin@example.com";
 const SUPERADMIN_PASSWORD = "superadmin123";
@@ -55,7 +66,7 @@ const SUPERADMIN_PASSWORD = "superadmin123";
 const initialSuperAdminUser: User = {
   id: SUPERADMIN_ID,
   email: SUPERADMIN_EMAIL,
-  password: SUPERADMIN_PASSWORD, // In real app, store hashed passwords
+  password: SUPERADMIN_PASSWORD,
   role: 'superadmin',
 };
 
@@ -76,11 +87,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setMenuItems(storedMenuItemsRaw ? JSON.parse(storedMenuItemsRaw) : []);
 
       const storedMenuCategoriesRaw = localStorage.getItem(MENU_CATEGORIES_BY_CAFE_STORAGE_KEY);
-      setMenuCategoriesByCafe(storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : {});
+      // Ensure initialDefaultCategories are set for new cafes if not present
+      const parsedMenuCategories = storedMenuCategoriesRaw ? JSON.parse(storedMenuCategoriesRaw) : {};
+      setMenuCategoriesByCafe(parsedMenuCategories);
       
       const storedUsersRaw = localStorage.getItem(USERS_STORAGE_KEY);
       const parsedUsers = storedUsersRaw ? JSON.parse(storedUsersRaw) : [];
-      // Ensure superadmin always exists
       if (!parsedUsers.find((u: User) => u.id === SUPERADMIN_ID)) {
         setUsers([initialSuperAdminUser, ...parsedUsers.filter((u: User) => u.id !== SUPERADMIN_ID)]);
       } else {
@@ -92,7 +104,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     } catch (error) {
       console.error("Error loading data from localStorage:", error);
-      // Reset to defaults or handle error appropriately
       setCafes([]);
       setMenuItems([]);
       setMenuCategoriesByCafe({});
@@ -121,7 +132,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   }, [cafes, menuItems, menuCategoriesByCafe, users, currentUser, isInitialized]);
 
   const login = (email: string, password: string): boolean => {
-    const user = users.find(u => u.email === email && u.password === password); // Plain text check for proto
+    const user = users.find(u => u.email === email && u.password === password);
     if (user) {
       setCurrentUser(user);
       return true;
@@ -132,11 +143,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setCurrentUser(null);
-    localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+    // No need to remove from localStorage here, useEffect handles it
   };
 
   const registerCafeAndAdmin = (
-    cafeData: Omit<Cafe, 'id' | 'ownerUserId'>,
+    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string },
     adminData: Omit<User, 'id' | 'role' | 'cafeId'>
   ) => {
     if (users.find(u => u.email === adminData.email)) {
@@ -149,13 +160,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const newAdminUser: User = {
       id: newAdminId,
       email: adminData.email,
-      password: adminData.password, // Store plain for proto
+      password: adminData.password,
       role: 'cafeadmin',
       cafeId: newCafeId,
     };
 
     const newCafe: Cafe = {
-      ...cafeData,
+      name: cafeData.name,
+      address: cafeData.address,
+      contactInfo: cafeData.contactInfo,
+      imageUrl: cafeData.imageUrl, // Will be Data URI or placeholder
       id: newCafeId,
       ownerUserId: newAdminId,
     };
@@ -163,11 +177,14 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setUsers(prevUsers => [...prevUsers, newAdminUser]);
     setCafes(prevCafes => [...prevCafes, newCafe]);
     setMenuCategoriesByCafe(prev => ({ ...prev, [newCafeId]: [...initialDefaultCategories] }));
-    setCurrentUser(newAdminUser); // Auto-login after registration
+    setCurrentUser(newAdminUser);
     return { success: true, newCafe, newUser: newAdminUser };
   };
   
-  const addCafeBySuperAdmin = (cafeData: Omit<Cafe, 'id' | 'ownerUserId'>, adminEmail: string, adminPassword: string) => {
+  const addCafeBySuperAdmin = (
+    cafeData: Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'> & { imageUrl?: string },
+    adminEmail: string, adminPassword: string
+  ) => {
      if (users.find(u => u.email === adminEmail)) {
       return { success: false, message: "Email admin sudah terdaftar untuk pengguna lain." };
     }
@@ -182,7 +199,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       cafeId: newCafeId,
     };
     const newCafe: Cafe = {
-      ...cafeData,
+      name: cafeData.name,
+      address: cafeData.address,
+      contactInfo: cafeData.contactInfo,
+      imageUrl: cafeData.imageUrl, // Will be Data URI or placeholder
       id: newCafeId,
       ownerUserId: newAdminId,
     };
@@ -197,37 +217,40 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return cafes.find(cafe => cafe.id === cafeId);
   };
 
-  const editCafe = (cafeId: string, updatedCafeData: Partial<Omit<Cafe, 'id' | 'ownerUserId'>>, newAdminPassword?: string) => {
-    let cafeAdminUpdated = false;
+  const editCafe = (
+    cafeId: string,
+    updatedCafeData: Partial<Omit<Cafe, 'id' | 'ownerUserId' | 'imageUrl'>> & { imageUrl?: string },
+    newAdminPassword?: string
+  ) => {
     setCafes(prevCafes =>
       prevCafes.map(cafe => {
         if (cafe.id === cafeId) {
-          const newDetails = { ...cafe, ...updatedCafeData };
-          // If adminEmail is part of updatedCafeData and it changed, or newAdminPassword is provided
-          if (('adminEmail' in updatedCafeData && updatedCafeData.adminEmail !== cafe.adminEmail) || newAdminPassword) {
+          // Construct the updated cafe object, ensuring imageUrl is handled correctly
+          const newDetails: Cafe = {
+            ...cafe,
+            name: updatedCafeData.name ?? cafe.name,
+            address: updatedCafeData.address ?? cafe.address,
+            contactInfo: updatedCafeData.contactInfo ?? cafe.contactInfo,
+            // If imageUrl is explicitly provided (even as empty string for removal), use it.
+            // Otherwise, keep the existing one.
+            imageUrl: typeof updatedCafeData.imageUrl !== 'undefined' ? updatedCafeData.imageUrl : cafe.imageUrl,
+          };
+
+          // Handle admin password change if requested by superadmin (simplified)
+          if (newAdminPassword && currentUser?.role === 'superadmin') {
              setUsers(prevUsers => prevUsers.map(u => {
                if (u.cafeId === cafeId && u.role === 'cafeadmin') {
-                 cafeAdminUpdated = true;
-                 return {
-                   ...u,
-                   email: ('adminEmail' in updatedCafeData && updatedCafeData.adminEmail) ? updatedCafeData.adminEmail : u.email,
-                   password: newAdminPassword || u.password
-                 };
+                 return { ...u, password: newAdminPassword };
                }
                return u;
              }));
           }
-          // The adminEmail field is not directly on Cafe type anymore, it's linked via ownerUserId
-          // This part of logic for updating adminEmail directly on cafe needs to be rethought if adminEmail is not on Cafe.
-          // For now, let's assume `updatedCafeData` might contain `adminEmail` if superadmin is changing it.
-          // This editCafe function is primarily for cafe details like name, address, image.
-          // Owner changes are more complex and might need a separate flow or be restricted.
           return newDetails;
         }
         return cafe;
       })
     );
-    return true; // Simplified return
+    return true;
   };
 
 
@@ -241,15 +264,23 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       const { [cafeId]: _, ...rest } = prev;
       return rest;
     });
-    setUsers(prevUsers => prevUsers.filter(user => user.cafeId !== cafeId && user.id !== cafeToDelete.ownerUserId));
-     // If the deleted cafe's admin is the current user, log them out
-    if (currentUser && currentUser.cafeId === cafeId) {
+    setUsers(prevUsers => prevUsers.filter(user => user.cafeId !== cafeId || user.id !== cafeToDelete.ownerUserId));
+    if (currentUser && currentUser.role === 'cafeadmin' && currentUser.cafeId === cafeId) {
         logout();
+    } else if (currentUser && currentUser.role === 'superadmin' && users.find(u => u.id === currentUser.id && u.cafeId === cafeId)) {
+        // This case should not happen as superadmin does not have cafeId
     }
   };
 
-  const addMenuItem = (menuItemData: Omit<MenuItem, 'id'>) => {
-    const newMenuItem: MenuItem = { ...menuItemData, id: `menu-${Date.now()}` };
+  const addMenuItem = (menuItemData: Omit<MenuItem, 'id' | 'imageUrl'> & { imageUrl?: string }) => {
+    const newMenuItem: MenuItem = { 
+      id: `menu-${Date.now()}`,
+      cafeId: menuItemData.cafeId,
+      name: menuItemData.name,
+      price: menuItemData.price,
+      category: menuItemData.category,
+      imageUrl: menuItemData.imageUrl, // Will be Data URI or placeholder
+    };
     setMenuItems((prevMenuItems) => [...prevMenuItems, newMenuItem]);
     return newMenuItem;
   };
@@ -258,10 +289,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return menuItems.find(item => item.id === menuItemId);
   };
 
-  const editMenuItem = (menuItemId: string, updatedMenuItemData: Omit<MenuItem, 'id' | 'cafeId'>) => {
+  const editMenuItem = (menuItemId: string, updatedMenuItemData: Omit<MenuItem, 'id' | 'cafeId' | 'imageUrl'> & { imageUrl?: string }) => {
     setMenuItems(prevItems =>
       prevItems.map(item =>
-        item.id === menuItemId ? { ...item, ...updatedMenuItemData } : item
+        item.id === menuItemId ? { 
+          ...item, 
+          name: updatedMenuItemData.name ?? item.name,
+          price: updatedMenuItemData.price ?? item.price,
+          category: updatedMenuItemData.category ?? item.category,
+          imageUrl: typeof updatedMenuItemData.imageUrl !== 'undefined' ? updatedMenuItemData.imageUrl : item.imageUrl,
+        } : item
       )
     );
     return true;
@@ -313,13 +350,23 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const currentCategories = menuCategoriesByCafe[cafeId] || [];
     const newCategories = currentCategories.filter(cat => cat !== categoryName);
     setMenuCategoriesByCafe(prev => ({ ...prev, [cafeId]: newCategories }));
-    // Items with this category are not deleted, just the category from the list.
+  };
+
+  const getTotalMenuItemCount = () => menuItems.length;
+
+  const getTotalUniqueCategoryCount = () => {
+    const allCategories = new Set<string>();
+    Object.values(menuCategoriesByCafe).forEach(cafeCategories => {
+      cafeCategories.forEach(cat => allCategories.add(cat));
+    });
+    return allCategories.size;
   };
   
   const providerValue: StoreContextType = {
     cafes,
     menuItems,
     menuCategoriesByCafe,
+    users,
     currentUser,
     isInitialized,
     login,
@@ -338,6 +385,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     addMenuCategoryForCafe,
     editMenuCategoryForCafe,
     deleteMenuCategoryForCafe,
+    getTotalMenuItemCount,
+    getTotalUniqueCategoryCount,
   };
 
   return React.createElement(
@@ -354,3 +403,4 @@ export const useStore = () => {
   }
   return context;
 };
+
