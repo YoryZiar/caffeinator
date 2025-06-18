@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Coffee, List, PlusCircle } from 'lucide-react';
+import { Coffee, List, PlusCircle, Settings } from 'lucide-react'; // Tambahkan Settings icon
 
 export function Navbar() {
   return (
@@ -12,17 +13,23 @@ export function Navbar() {
           <Coffee className="h-6 w-6 text-primary" />
           <span className="font-bold font-headline text-lg">Caffeinator</span>
         </Link>
-        <nav className="flex flex-1 items-center space-x-4">
-          <Button variant="ghost" asChild>
-            <Link href="/" className="text-sm font-medium">
-              <List className="mr-2 h-4 w-4" />
+        <nav className="flex flex-1 items-center space-x-2 md:space-x-4">
+          <Button variant="ghost" asChild className="text-xs sm:text-sm">
+            <Link href="/" >
+              <List className="mr-1 h-4 w-4" />
               Daftar Kafe
             </Link>
           </Button>
-          <Button variant="ghost" asChild>
-            <Link href="/add-cafe" className="text-sm font-medium">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Tambah Kafe Baru
+          <Button variant="ghost" asChild className="text-xs sm:text-sm">
+            <Link href="/add-cafe">
+              <PlusCircle className="mr-1 h-4 w-4" />
+              Tambah Kafe
+            </Link>
+          </Button>
+          <Button variant="ghost" asChild className="text-xs sm:text-sm">
+            <Link href="/manage-categories">
+              <Settings className="mr-1 h-4 w-4" />
+              Kelola Kategori
             </Link>
           </Button>
         </nav>

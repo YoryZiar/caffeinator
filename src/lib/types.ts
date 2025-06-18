@@ -3,6 +3,7 @@ export interface Cafe {
   name: string;
   address: string;
   contactInfo: string;
+  imageUrl?: string; // Tambahkan imageUrl opsional
 }
 
 export interface MenuItem {
@@ -11,15 +12,17 @@ export interface MenuItem {
   name: string;
   imageUrl: string;
   price: number;
-  category: string;
+  category: string; // Kategori tetap string, akan divalidasi/dipilih dari daftar dinamis
 }
 
-export const MenuItemCategories = [
-  "Makanan Utama",
-  "Makanan Ringan",
-  "Minuman Panas",
-  "Minuman Dingin",
-  "Pencuci Mulut",
-] as const;
+// MenuItemCategories konstanta dihapus, akan dikelola di store
+// export const MenuItemCategories = [
+//   "Makanan Utama",
+//   "Makanan Ringan",
+//   "Minuman Panas",
+//   "Minuman Dingin",
+//   "Pencuci Mulut",
+// ] as const;
 
-export type MenuItemCategory = typeof MenuItemCategories[number];
+// export type MenuItemCategory = typeof MenuItemCategories[number]; // Tidak lagi digunakan seperti ini
+export type MenuItemCategory = string; // Kategori adalah string

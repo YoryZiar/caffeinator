@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -10,12 +11,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Building, MapPin, Phone, Save } from 'lucide-react';
+import { Building, MapPin, Phone, Save, Image as ImageIcon } from 'lucide-react';
 
 const cafeFormSchema = z.object({
   name: z.string().min(2, { message: "Nama kafe minimal 2 karakter." }).max(50, { message: "Nama kafe maksimal 50 karakter." }),
   address: z.string().min(5, { message: "Alamat minimal 5 karakter." }).max(100, { message: "Alamat maksimal 100 karakter." }),
   contactInfo: z.string().min(5, { message: "Info kontak minimal 5 karakter (e.g., nomor telepon)." }).max(50, { message: "Info kontak maksimal 50 karakter." }),
+  imageUrl: z.string().url({ message: "URL gambar tidak valid." }).optional().or(z.literal('')),
 });
 
 type CafeFormValues = z.infer<typeof cafeFormSchema>;
@@ -31,12 +33,13 @@ export function CafeForm() {
       name: '',
       address: '',
       contactInfo: '',
+      imageUrl: '',
     },
   });
 
   function onSubmit(data: CafeFormValues) {
     try {
-      addCafe(data);
+      addCafe(data); // imageUrl will be included if provided
       toast({
         title: "Kafe Ditambahkan!",
         description: `${data.name} berhasil ditambahkan.`,
@@ -95,6 +98,19 @@ export function CafeForm() {
                   <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-primary" />Info Kontak</FormLabel>
                   <FormControl>
                     <Input placeholder="Contoh: 08123456789" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-primary" />URL Gambar Kafe (Opsional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://contoh.com/gambar-kafe.jpg" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -11,14 +12,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { MenuItemCategories, type MenuItemCategory } from '@/lib/types';
+// import { MenuItemCategories, type MenuItemCategory } from '@/lib/types'; // Dihapus, ambil dari store
 import { Utensils, Image as ImageIcon, DollarSign, ListChecks, Save } from 'lucide-react';
 
 const menuItemFormSchema = z.object({
   name: z.string().min(2, { message: "Nama menu minimal 2 karakter." }).max(50, { message: "Nama menu maksimal 50 karakter." }),
   imageUrl: z.string().url({ message: "URL gambar tidak valid." }).optional().or(z.literal('')),
   price: z.coerce.number().min(0, { message: "Harga tidak boleh negatif." }),
-  category: z.enum(MenuItemCategories, { errorMap: () => ({ message: "Pilih kategori yang valid."}) }),
+  category: z.string().min(1, { message: "Kategori harus dipilih."}), // Diubah menjadi string, tidak lagi enum
 });
 
 type MenuItemFormValues = z.infer<typeof menuItemFormSchema>;
@@ -29,7 +30,7 @@ interface MenuItemFormProps {
 }
 
 export function MenuItemForm({ cafeId, cafeName }: MenuItemFormProps) {
-  const { addMenuItem } = useStore();
+  const { addMenuItem, menuCategories } = useStore(); // Ambil menuCategories dari store
   const router = useRouter();
   const { toast } = useToast();
 
@@ -45,7 +46,7 @@ export function MenuItemForm({ cafeId, cafeName }: MenuItemFormProps) {
 
   function onSubmit(data: MenuItemFormValues) {
     try {
-      addMenuItem({ ...data, cafeId, imageUrl: data.imageUrl || '' });
+      addMenuItem({ ...data, cafeId, imageUrl: data.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(data.name)}` });
       toast({
         title: "Item Menu Ditambahkan!",
         description: `${data.name} berhasil ditambahkan ke menu ${cafeName}.`,
@@ -122,11 +123,15 @@ export function MenuItemForm({ cafeId, cafeName }: MenuItemFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {MenuItemCategories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
+                      {menuCategories.length === 0 ? (
+                        <SelectItem value="-" disabled>Belum ada kategori. Tambah di 'Kelola Kategori'.</SelectItem>
+                      ) : (
+                        menuCategories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

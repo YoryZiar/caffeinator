@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Cafe } from '@/lib/types';
@@ -12,16 +13,21 @@ interface CafeCardProps {
 }
 
 export function CafeCard({ cafe }: CafeCardProps) {
+  const imageSrc = cafe.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(cafe.name)}`;
+  const imageAlt = cafe.imageUrl ? `Gambar untuk ${cafe.name}` : `Placeholder untuk ${cafe.name}`;
+  const aiHint = cafe.imageUrl ? "cafe interior" : "cafe restaurant";
+
+
   return (
-    <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out">
+    <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out group">
       <div className="relative w-full h-48">
         <Image
-          src={`https://placehold.co/600x400.png?text=${encodeURIComponent(cafe.name)}`}
-          alt={`Gambar representatif untuk ${cafe.name}`}
+          src={imageSrc}
+          alt={imageAlt}
           layout="fill"
           objectFit="cover"
           className="transition-transform duration-300 group-hover:scale-105"
-          data-ai-hint="cafe restaurant"
+          data-ai-hint={aiHint}
         />
       </div>
       <CardHeader>
