@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -37,7 +37,7 @@ const fileToDataUri = (file: File): Promise<string> => {
 };
 
 export default function RegisterCafePage() {
-  const { registerCafeAndAdmin, currentUser } = useStore();
+  const { registerCafeAndAdmin, currentUser, isInitialized } = useStore(); // Added isInitialized
   const router = useRouter();
   const { toast } = useToast();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -54,8 +54,18 @@ export default function RegisterCafePage() {
     },
   });
 
-  if (currentUser) {
-    router.push(currentUser.role === 'cafeadmin' ? '/dashboard' : '/');
+  useEffect(() => {
+    if (isInitialized && currentUser) {
+      router.push(currentUser.role === 'cafeadmin' ? '/dashboard' : '/');
+    }
+  }, [currentUser, isInitialized, router]);
+
+
+  if (!isInitialized) { // Show loading until store is ready
+    return <div className="text-center py-10">Memuat...</div>;
+  }
+
+  if (currentUser) { // If user is already logged in after initialization
     return <div className="text-center py-10">Anda sudah login. Mengarahkan...</div>;
   }
 
@@ -80,7 +90,7 @@ export default function RegisterCafePage() {
         title: "Pendaftaran Berhasil!",
         description: `Kafe "${data.cafeName}" dan akun admin Anda telah dibuat.`,
       });
-      router.push('/dashboard');
+      // Login is handled by registerCafeAndAdmin, redirection by useEffect
     } else {
       toast({
         variant: "destructive",
@@ -162,9 +172,9 @@ export default function RegisterCafePage() {
                   <FormItem>
                     <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-primary" />Gambar Kafe (Opsional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="file" 
-                        accept="image/*" 
+                      <Input
+                        type="file"
+                        accept="image/*"
                         onChange={(e) => handleImageFileChange(e, field.onChange)}
                         className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                       />
