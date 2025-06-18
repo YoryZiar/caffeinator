@@ -44,11 +44,11 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const CAFE_STORAGE_KEY = 'caffeinator_cafes_v4_no_image_persist';
-const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v4_no_image_persist';
-const MENU_CATEGORIES_BY_CAFE_STORAGE_KEY = 'caffeinator_menuCategoriesByCafe_v2';
-const USERS_STORAGE_KEY = 'caffeinator_users_v2';
-const CURRENT_USER_STORAGE_KEY = 'caffeinator_currentUser_v2';
+const CAFE_STORAGE_KEY = 'caffeinator_cafes_v5_with_image_persist';
+const MENU_ITEM_STORAGE_KEY = 'caffeinator_menuItems_v5_with_image_persist';
+const MENU_CATEGORIES_BY_CAFE_STORAGE_KEY = 'caffeinator_menuCategoriesByCafe_v2'; // No structural change here
+const USERS_STORAGE_KEY = 'caffeinator_users_v2'; // No structural change here
+const CURRENT_USER_STORAGE_KEY = 'caffeinator_currentUser_v2'; // No structural change here
 
 const initialDefaultCategories = [
   "Makanan Utama",
@@ -102,7 +102,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     } catch (error) {
       console.error("Error loading data from localStorage:", error);
-      // Reset to defaults if loading fails
       setCafes([]);
       setMenuItems([]);
       setMenuCategoriesByCafe({});
@@ -115,12 +114,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isInitialized) {
       try {
-        // Prepare data for localStorage by removing imageUrl to prevent quota errors
-        const cafesToStore = cafes.map(({ imageUrl, ...rest }) => rest);
-        localStorage.setItem(CAFE_STORAGE_KEY, JSON.stringify(cafesToStore));
-
-        const menuItemsToStore = menuItems.map(({ imageUrl, ...rest }) => rest);
-        localStorage.setItem(MENU_ITEM_STORAGE_KEY, JSON.stringify(menuItemsToStore));
+        // Now directly stringify and save cafes and menuItems including their imageUrl
+        localStorage.setItem(CAFE_STORAGE_KEY, JSON.stringify(cafes));
+        localStorage.setItem(MENU_ITEM_STORAGE_KEY, JSON.stringify(menuItems));
         
         localStorage.setItem(MENU_CATEGORIES_BY_CAFE_STORAGE_KEY, JSON.stringify(menuCategoriesByCafe));
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
@@ -131,8 +127,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
         }
       } catch (error) {
-        console.error("Failed to save data to localStorage (possibly quota exceeded even after trying to reduce size):", error);
-        // Potentially notify user or implement more robust error handling / data trimming
+        console.error("Failed to save data to localStorage. Images are now persisted, which might lead to quota issues if many large images are uploaded:", error);
       }
     }
   }, [cafes, menuItems, menuCategoriesByCafe, users, currentUser, isInitialized]);
